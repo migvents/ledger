@@ -1,7 +1,7 @@
 name: Ledger alerts
 on:
   schedule:
-    - cron: "15 17 * * *"   # 17:15 UTC daily (market checks skip nothing on weekends; plan/TOB days may be weekends)
+    - cron: "15 6,11,15,20 * * *"   # four checks a day (UTC): before the open, midday, after the European close, after the US close
   workflow_dispatch:
 permissions:
   contents: write
