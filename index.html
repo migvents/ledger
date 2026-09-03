@@ -234,7 +234,7 @@ const INFO = {
  month:{t:"Which month to rebalance",p:["The research finds no month that is reliably better; calendar effects like 'sell in May' are folklore, not evidence. Pick one date you will actually keep. January has a practical edge for a Belgian investor: the yearly capital gains exemption resets, your broker statements for the previous year are complete, and it keeps the rebalance separate from December's thin, volatile trading.","The app flags the check in your chosen month once at least ten months have passed since the last one, and flags it regardless of month after thirteen months."]},
  revolut:{t:"Revolut specifics",p:["Revolut gives a monthly allowance of commission-free stock and ETF orders that depends on your plan (Standard 1, Plus 3, Premium 5, Metal and Ultra 10); orders beyond that cost 0.25% with a €1 minimum. Recurring buys of eligible ETFs set up through the investment plan feature carry no commission and no minimum, which suits a monthly routine.","Revolut's investment arm is Lithuanian, so it does not collect the Belgian transaction tax for you. You must declare and pay the TOB yourself (the declaration is due by the end of the second month after the trade) and declare capital gains in your tax return. Keep the fee and TOB columns in this app accurate; they are your record.","Buy the EUR-listed line of each fund where Revolut offers it, so you avoid currency conversion on every order."]},
  orders:{t:"Max orders per month",p:["How many funds the app will tell you to buy each month. With a small monthly amount, buying only the one or two funds furthest below target keeps orders meaningful and inside your free-trade allowance; over a few months every fund gets its turn. Set it to the number of funds if you prefer to buy everything every month."]},
- tobtab:{t:"The TOB tab",p:["Every purchase and sale through a broker that does not collect the Belgian transaction tax leaves you to declare it yourself. This tab groups those trades by the month they happened, shows the amount and the legal deadline (the last day of the second month after), and flags anything overdue.","Mark a month paid once you have filed it; it then stops counting against your total and the reminders stop. The 20th of each month you also get a phone notification.","The rate depends on the product: 0.12% for most registered accumulating ETFs, 1.32% if not registered, 0.35% for shares and commodity trackers such as gold."]},
+ tobtab:{t:"The TOB tab",p:["Two separate steps are tracked: <strong>declared</strong> (you filed the return at MyMinfin) and <strong>paid</strong> (the money reached the tax office). A month can be declared but not yet paid; the deadline applies to both, so anything past its deadline without payment is flagged overdue.","Every purchase and sale through a broker that does not collect the Belgian transaction tax leaves you to declare it yourself. This tab groups those trades by the month they happened, shows the amount and the legal deadline (the last day of the second month after), and flags anything overdue.","Mark a month paid once you have filed it; it then stops counting against your total and the reminders stop. The 20th of each month you also get a phone notification.","The rate depends on the product: 0.12% for most registered accumulating ETFs, 1.32% if not registered, 0.35% for shares and commodity trackers such as gold."]},
  tobfile:{t:"Declaring TOB",p:["Because Revolut's investment arm is not a Belgian intermediary, it does not collect the tax on stock exchange transactions (TOB). You file the declaration and pay it yourself: the deadline is the last working day of the second month after the month of the trade (trades in September are declared and paid by the end of November). The form and payment details are on the FPS Finance website. Keep the fee and TOB record here; the amounts shown are 0.12% of each trade, the rate for Belgian-registered accumulating ETFs. The gold ETC may carry a different rate; check before filing."]},
  dip:{t:"The buy-the-dip rule",p:["The app records the highest price it has seen for each fund and measures how far the equity slices (gold excluded) have fallen from those peaks, weighted by target. When the fall crosses a tier (default 15%, 25%, 35%), it tells you to invest one extra tranche of the amount you set here, on top of the normal monthly plan, into the funds furthest below target. Each tier fires once per episode; the counter resets once equities are back within 5% of the peak.","How much: only money beyond your cash buffer, and decide the tranche now, while calm. Three tiers exist so you do not spend all your spare cash at −15% and have nothing left at −35%. If your spare savings are irregular, set the tranche to what you could put in three times without touching the buffer.","Peaks are only recorded when the app has seen the price, so a spike between openings may be missed; the rule is deliberately approximate."]},
  twin:{t:"US twin",p:["Free market data does not cover European listings, so each fund is tracked through a US-listed fund holding the same index: VOO for an S&P 500 fund, RSP for equal weight, VEA for developed ex-US, VWO for emerging markets, GLD for gold. The app scales the twin's moves onto the EUR price you entered. If you add a fund, put its twin here or the charts stay empty."]},
@@ -265,7 +265,7 @@ const INFO = {
 const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
 
 // ---------- state ----------
-const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 34 · 2026-09-03";
+const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 35 · 2026-09-03";
 let mem=null;
 const defaults=()=>({
  settings:{band:5,tob:0.12,buffer:0,priceDate:new Date().toISOString().slice(0,10),rebalanceMonth:1,lastRebalance:"",monthly:200,maxOrders:5,autoPrices:true,dipTranche:0,dipTiers:[15,25,35],dipFired:[]},
@@ -485,7 +485,7 @@ function calc(){
     else if(t.type==="Withdrawal"){out.withdrawals+=t.amount;out.cashBy[b]-=t.amount;}
     else if(t.type==="Fee"){out.fees+=t.amount;out.cashBy[b]-=t.amount;}
     else if(t.type==="Buy"||t.type==="Sell"){ const g=t.units*t.price, tx=tob(t), f=(t.fee||0); out.fees+=f+tx;
-      const declared=(S.settings.tobPaid||{})[t.date.slice(0,7)]; const owed=(t.tobPaid||declared)?0:tx; out.tobOwed=(out.tobOwed||0)+owed; const atBroker=f+(t.tobPaid?tx:0);
+      const rec=(S.settings.tobStatus||{})[t.date.slice(0,7)]||{}; const settled=rec.paid||(S.settings.tobPaid||{})[t.date.slice(0,7)]; const owed=(t.tobPaid||settled)?0:tx; out.tobOwed=(out.tobOwed||0)+owed; const atBroker=f+(t.tobPaid?tx:0);
       if(t.type==="Buy"){ out.cashBy[b]-=g+atBroker; if(b===main&&out.cashBy[b]<0){ out.implicit+=-out.cashBy[b]; out.deposits+=-out.cashBy[b]; out.cashBy[b]=0; } }
       else out.cashBy[b]+=g-atBroker; }
   }
@@ -813,29 +813,38 @@ function tobMonths(){
   const by={};
   for(const t of S.tx){ if(t.type!=="Buy"&&t.type!=="Sell")continue; const x=tob(t); if(!x||t.tobPaid)continue;
     const k=t.date.slice(0,7); by[k]=by[k]||{amount:0,n:0,trades:[]}; by[k].amount+=x; by[k].n++; by[k].trades.push(t); }
-  const paid=S.settings.tobPaid||{};
+  const st=S.settings.tobStatus||{}; const legacy=S.settings.tobPaid||{};
   return Object.keys(by).sort().map(k=>{ const [y,mo]=k.split("-").map(Number);
-    const due=new Date(y,mo+1,0); // last day of the second month after
-    return {month:k,amount:Math.round(by[k].amount*100)/100,n:by[k].n,trades:by[k].trades,due:due.toISOString().slice(0,10),paid:paid[k]||null,overdue:!paid[k]&&new Date()>due};
+    const due=new Date(y,mo+1,0);
+    const rec=st[k]||(legacy[k]?{declared:legacy[k],paid:legacy[k]}:{});
+    return {month:k,amount:Math.round(by[k].amount*100)/100,n:by[k].n,trades:by[k].trades,due:due.toISOString().slice(0,10),
+      declared:rec.declared||null,paid:rec.paid||null,ref:rec.ref||"",overdue:!rec.paid&&new Date()>due};
   });
 }
 function renderTob(){
   const el=document.getElementById("tobbox"); if(!el)return; const rows=tobMonths();
-  const open=rows.filter(r=>!r.paid), owed=open.reduce((x,r)=>x+r.amount,0), late=open.filter(r=>r.overdue);
   const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const fmt=k=>{const [y,m]=k.split("-");return mn[+m-1]+" "+y;};
-  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
-      <div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">Still to declare</div><div style="font-size:17px;font-weight:500">${eur(owed)}</div><div class="muted" style="font-size:12px">${open.length} month${open.length===1?"":"s"}</div></div>
-      <div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">Overdue</div><div style="font-size:17px;font-weight:500" class="${late.length?"neg":""}">${late.length?eur(late.reduce((x,r)=>x+r.amount,0)):"none"}</div>${late.length?`<div class="muted" style="font-size:12px">${late.map(r=>fmt(r.month)).join(", ")}</div>`:""}</div></div>
-    ${rows.length?`<table><tr><th>Trades in</th><th class="n">Amount</th><th>Deadline</th><th>Status</th></tr>`+
-      rows.map(r=>`<tr><td>${fmt(r.month)}<div class="muted">${r.n} trade${r.n===1?"":"s"}</div></td><td class="n">${eur(r.amount)}</td><td>${r.due}</td>
-        <td>${r.paid?`<span class="tag ok">paid ${r.paid}</span> <button class="del" data-tobunpaid="${r.month}">undo</button>`:`<span class="tag ${r.overdue?"over":"under"}">${r.overdue?"overdue":"open"}</span> <button class="del" data-tobpaid="${r.month}" style="color:var(--ink);text-decoration:underline">mark paid</button>`}</td></tr>`).join("")+`</table>`
+  const todo=rows.filter(r=>!r.declared), waiting=rows.filter(r=>r.declared&&!r.paid), late=rows.filter(r=>r.overdue);
+  const sum=a=>a.reduce((x,r)=>x+r.amount,0);
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:10px">
+      <div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">To declare</div><div style="font-size:17px;font-weight:500">${eur(sum(todo))}</div><div class="muted" style="font-size:12px">${todo.length} month${todo.length===1?"":"s"}</div></div>
+      <div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">Declared, to pay</div><div style="font-size:17px;font-weight:500">${eur(sum(waiting))}</div><div class="muted" style="font-size:12px">${waiting.length} month${waiting.length===1?"":"s"}</div></div>
+      <div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">Overdue</div><div style="font-size:17px;font-weight:500" class="${late.length?"neg":""}">${late.length?eur(sum(late)):"none"}</div><div class="muted" style="font-size:12px">${late.length?late.map(r=>fmt(r.month)).join(", "):"nothing late"}</div></div></div>
+    ${rows.length?`<table><tr><th>Trades in</th><th class="n">Amount</th><th>Deadline</th><th>Declared</th><th>Paid</th></tr>`+
+      rows.map(r=>`<tr>
+        <td>${fmt(r.month)}<div class="muted">${r.n} trade${r.n===1?"":"s"}</div>${r.ref?`<div class="muted">ref ${r.ref}</div>`:""}</td>
+        <td class="n">${eur(r.amount)}</td>
+        <td>${r.due}${r.overdue?`<div><span class="tag over">overdue</span></div>`:""}</td>
+        <td>${r.declared?`<span class="tag ok">${r.declared}</span> <button class="del" data-tobundec="${r.month}">undo</button>`:`<button class="del" data-tobdec="${r.month}" style="color:var(--ink);text-decoration:underline">mark declared</button>`}</td>
+        <td>${r.paid?`<span class="tag ok">${r.paid}</span> <button class="del" data-tobunpaid="${r.month}">undo</button>`:(r.declared?`<button class="del" data-tobpaid="${r.month}" style="color:var(--ink);text-decoration:underline">mark paid</button>`:`<span class="muted">–</span>`)}</td></tr>`).join("")+`</table>`
       :`<p class="muted">No transaction tax owed yet: log a purchase and it appears here.</p>`}
+    <div class="row one" style="margin-top:10px"><div><label>Structured reference for a declared month (optional)</label><div style="display:flex;gap:8px"><select id="tob-refmonth" style="flex:0 0 130px">${rows.filter(r=>r.declared).map(r=>`<option value="${r.month}">${fmt(r.month)}</option>`).join("")||"<option value=''>none yet</option>"}</select><input id="tob-ref" placeholder="+++205/0882/34088+++" value=""><button class="btn quiet" id="tob-saveref">Save</button></div></div></div>
     <ol class="muted" style="margin:12px 0 0 18px;padding:0;font-size:13px">
-      <li>Deadline: the last day of the second month after the trade (a purchase in September is due by 30 November).</li>
-      <li>Declare at MyMinfin: search "TOB aangifte" and file the amount for that month. Keep the confirmation with its structured reference.</li>
-      <li>Rates used here: ${S.settings.tob}% by default, and per fund where set (0.35% for the gold ETC).</li>
-      <li>Trades marked "TOB collected by broker" are excluded; only brokers that pay it for you (Bolero, KBC, Saxo…) should be ticked. Revolut and Trade Republic do not.</li>
+      <li>Deadline: the last day of the second month after the trade (a purchase in September is due by 30 November). Declaring and paying can happen on different days; both are tracked here.</li>
+      <li>Declare at MyMinfin ("TOB aangifte"), then pay to the FPS Finance account with the structured reference the declaration gives you. Save that reference above.</li>
+      <li>Rates: ${S.settings.tob}% by default, per fund where set (0.35% for the gold ETC).</li>
+      <li>Trades ticked as "TOB collected by broker" are excluded. Revolut and Trade Republic do not collect it; Bolero, KBC and Saxo do.</li>
     </ol>`;
 }
 function renderRebal(c){
@@ -924,8 +933,12 @@ document.addEventListener("click",async e=>{
   if(b.dataset.tab){document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("on",p.id==="p-"+b.dataset.tab));window.scrollTo(0,0);}
   if(b.dataset.info){const k=INFO[b.dataset.info];document.getElementById("sheetcard").innerHTML=`<h3>${k.t}</h3>`+k.p.map(p=>`<p>${p}</p>`).join("")+`<div class="actions"><button class="btn quiet" id="close">Close</button></div>`;document.getElementById("sheet").classList.add("on");}
   if(b.id==="close")document.getElementById("sheet").classList.remove("on");
-  if(b.dataset.tobpaid){ S.settings.tobPaid=S.settings.tobPaid||{}; S.settings.tobPaid[b.dataset.tobpaid]=new Date().toISOString().slice(0,10); await save(); setStatus("TOB marked paid"); }
-  if(b.dataset.tobunpaid){ if(S.settings.tobPaid)delete S.settings.tobPaid[b.dataset.tobunpaid]; await save(); }
+  const tset=(k,f,v)=>{ S.settings.tobStatus=S.settings.tobStatus||{}; S.settings.tobStatus[k]=S.settings.tobStatus[k]||{}; if(v===null)delete S.settings.tobStatus[k][f]; else S.settings.tobStatus[k][f]=v; };
+  if(b.dataset.tobdec){ tset(b.dataset.tobdec,"declared",new Date().toISOString().slice(0,10)); await save(); setStatus("Marked declared"); }
+  if(b.dataset.tobundec){ tset(b.dataset.tobundec,"declared",null); tset(b.dataset.tobundec,"paid",null); await save(); }
+  if(b.dataset.tobpaid){ tset(b.dataset.tobpaid,"paid",new Date().toISOString().slice(0,10)); await save(); setStatus("Marked paid"); }
+  if(b.dataset.tobunpaid){ tset(b.dataset.tobunpaid,"paid",null); await save(); }
+  if(b.id==="tob-saveref"){ const k=document.getElementById("tob-refmonth").value, v=document.getElementById("tob-ref").value.trim(); if(k&&v){ tset(k,"ref",v); await save(); setStatus("Reference saved"); } }
   if(b.dataset.aside){S.tx.push({date:new Date().toISOString().slice(0,10),type:"Set aside",ticker:b.dataset.aside,amount:N(b.dataset.amt),note:"monthly set-aside"});await save();setStatus("Set aside recorded");}
   if(b.id==="rb-record"){ const st=document.getElementById("rb-status"); const date=document.getElementById("rb-date").value||new Date().toISOString().slice(0,10); const c=calc(); const plan=rebalancePlan(c); let n=0, bad=[];
     S.assets.forEach((a,i)=>{ const u=N(document.querySelector(`[data-rb-units="${i}"]`).value), pr=N(document.querySelector(`[data-rb-price="${i}"]`).value), fee=N(document.querySelector(`[data-rb-fee="${i}"]`).value);
