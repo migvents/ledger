@@ -32,12 +32,47 @@ def notify(title, msg, prio="default"):
     urllib.request.urlopen(req, timeout=30)
     print("sent:", title, "|", msg)
 
+def stooq(sym):
+    """Free daily CSV for European listings. Returns closes newest-first, or None."""
+    url = f"https://stooq.com/q/d/l/?s={urllib.parse.quote(sym)}&i=d"
+    try:
+        with urllib.request.urlopen(url, timeout=30) as r:
+            rows = r.read().decode().strip().splitlines()
+        if len(rows) < 30 or not rows[0].lower().startswith("date"):
+            return None
+        out = []
+        for line in rows[1:]:
+            p = line.split(",")
+            if len(p) >= 5:
+                try: out.append((p[0], float(p[4])))
+                except ValueError: pass
+        out = [c for _, c in sorted(out)][-400:]
+        return list(reversed(out)) if len(out) >= 30 else None
+    except Exception as e:
+        print("stooq failed for", sym, e); return None
+
+def live(f):
+    """Latest traded price for the fund's US twin, for an intraday view."""
+    try:
+        q = urllib.parse.urlencode({"symbol": f["symbol"], "apikey": API})
+        j = get("https://api.twelvedata.com/price?" + q)
+        p = float(j.get("price", 0))
+        return p if p > 0 else None
+    except Exception:
+        return None
+
 def series(f):
     """Try the symbol several ways; return list of closes (newest first) or None."""
     attempts = [
         {"symbol": f["symbol"], "exchange": f.get("exchange", "")},
         {"symbol": f["symbol"]},
     ]
+    if f.get("stooq"):
+        c = stooq(f["stooq"])
+        if c:
+            print(f"{f['ticker']}: ok via stooq {f['stooq']} (EUR listing)")
+            return c
+        print(f"{f['ticker']}: stooq {f['stooq']} unavailable, falling back to {f['symbol']}")
     for params in attempts:
         time.sleep(2)  # free plan: 8 requests per minute
         params = {k: v for k, v in params.items() if v}
@@ -51,13 +86,21 @@ def series(f):
 
 today = dt.date.today()
 lines, missing, dd_sum, wsum = [], [], 0.0, 0.0
+fund_dd, peaks, intraday = {}, {}, {}
 for f in cfg["funds"]:
     closes = series(f)
     if not closes:
         missing.append(f["ticker"]); continue
     last, peak = closes[0], max(closes)
     dd = (last / peak - 1) * 100
-    lines.append(f"{f['ticker']} (via {f['symbol']}) {dd:+.1f}% vs 1y high")
+    fund_dd[f["ticker"]] = dd
+    peaks[f["ticker"]] = peak
+    lines.append(f"{f['ticker']} {dd:+.1f}% vs 1y high")
+    if cfg.get("intraday", True):
+        time.sleep(2)
+        lp = live(f)
+        if lp:
+            intraday[f["ticker"]] = {"dd": (lp / peak - 1) * 100, "move": (lp / last - 1) * 100, "eq": bool(f.get("equity")), "target": f["target"]}
     if f.get("equity"):
         dd_sum += f["target"] * dd; wsum += f["target"]
 
@@ -73,40 +116,98 @@ if wsum:
     eq_dd = dd_sum / wsum
     print("equity drawdown %.1f%%" % eq_dd); print("\n".join(lines))
 
-    if eq_dd > -5 and state["fired"]:
-        state["fired"] = []
+    if eq_dd > -5 and (state["fired"] or state.get("breach") or state.get("watched")):
+        state["fired"] = []; state["breach"] = {}; state["watched"] = []
         notify("Ledger: recovery", "Equities back within 5% of their high. Dip tiers reset.")
 
     worst = [l for l in lines if "-1" in l or "-2" in l or "-3" in l]
     per_fund = [f["ticker"] for f in cfg["funds"] if f.get("equity")]
-    due = [t for t in cfg["dip_tiers_percent"] if eq_dd <= -t and t not in state["fired"]]
-    # individual funds far below their own high, even when the portfolio is not
-    solo = []
-    for ln in lines:
-        try:
-            pct = float(ln.split("(")[1].split("%")[0])
-            if pct <= -cfg["dip_tiers_percent"][0]:
-                solo.append(ln.split(" (")[0].split(" (via")[0] + f" {pct:.0f}%")
-        except Exception:
-            pass
-    if solo and not due and state.get("last_solo_alert") != today.strftime("%Y-%m"):
-        notify("Ledger: a fund is well below its high",
-               "Below their 1-year high: " + "; ".join(solo) +
-               ". The portfolio as a whole has not crossed a dip tier, so no extra tranche is due; "
-               "your monthly plan already buys more of what has fallen. Act only if the app shows it outside the rebalance band.")
-        state["last_solo_alert"] = today.strftime("%Y-%m")
-    if due:
-        extra = cfg["extra_tranche_eur"] * len(due)
-        amt = f"EUR {extra:,.0f}" if extra else "your pre-set tranche (not configured)"
-        notify("Ledger: buy-the-dip tier reached",
-               f"Equities {abs(eq_dd):.1f}% below their 1-year high. Tiers: {', '.join('-%d%%' % t for t in due)}. "
-               f"Invest {amt} extra from spare money outside the buffer, into the funds furthest below target. "
-               f"Keep the EUR {cfg['monthly_eur']} plan running.\n" + "\n".join(lines), "high")
-        state["fired"] += due
+    confirm_days = int(cfg.get("confirm_days", 3))
+    breach = state.setdefault("breach", {})          # tier -> first date it was breached
+    watched = state.setdefault("watched", [])        # tiers already announced as "watching"
+    due = []
+    for t in cfg["dip_tiers_percent"]:
+        key = str(t)
+        if eq_dd <= -t:
+            if key not in breach:
+                breach[key] = today.isoformat()
+                if t not in state["fired"] and t not in watched:
+                    notify("Ledger: watching a dip",
+                           f"Equities {abs(eq_dd):.1f}% below their 1-year high, past the -{t}% tier. "
+                           f"No action yet: the fall has to hold for {confirm_days} days before the extra tranche is due. "
+                           "Keep the monthly plan running.")
+                    watched.append(t)
+            else:
+                held = (today - dt.date.fromisoformat(breach[key])).days
+                if held >= confirm_days and t not in state["fired"]:
+                    due.append(t)
+        else:
+            breach.pop(key, None)
+            if t in watched:
+                watched.remove(t)
+    # individual funds: same three-day confirmation, own tiers
+    fbreach = state.setdefault("fund_breach", {})     # "TICKER|tier" -> first date
+    ffired = state.setdefault("fund_fired", {})       # ticker -> [tiers already acted on]
+    fund_msgs = []
+    for f in cfg["funds"]:
+        tk = f["ticker"]
+        if tk not in fund_dd or not f.get("equity"):
+            continue
+        d = fund_dd[tk]; done = ffired.setdefault(tk, [])
+        if d > -5:
+            done.clear()
+            for t in cfg["dip_tiers_percent"]:
+                fbreach.pop(f"{tk}|{t}", None)
+            continue
+        for t in cfg["dip_tiers_percent"]:
+            k = f"{tk}|{t}"
+            if d <= -t:
+                if k not in fbreach:
+                    fbreach[k] = today.isoformat()
+                elif (today - dt.date.fromisoformat(fbreach[k])).days >= confirm_days and t not in done:
+                    share = f["target"] / sum(x["target"] for x in cfg["funds"] if x.get("equity"))
+                    extra = cfg["extra_tranche_eur"] * share
+                    fund_msgs.append(
+                        f"{tk} is {abs(d):.1f}% below its 1-year high and has stayed there for {confirm_days} days"
+                        + (f"; its share of a tranche is about EUR {extra:.0f}" if cfg["extra_tranche_eur"] else ""))
+                    done.append(t)
+            else:
+                fbreach.pop(k, None)
+    # intraday view (live prices, information only)
+    if intraday:
+        eqs = {k: v for k, v in intraday.items() if v["eq"]}
+        wsum2 = sum(v["target"] for v in eqs.values())
+        if wsum2:
+            live_dd = sum(v["target"] * v["dd"] for v in eqs.values()) / wsum2
+            day_move = sum(v["target"] * v["move"] for v in eqs.values()) / wsum2
+            crossed = [t for t in cfg["dip_tiers_percent"] if live_dd <= -t]
+            seen_today = state.get("intraday_alert") == today.isoformat()
+            big_move = day_move <= -float(cfg.get("intraday_move_percent", 3))
+            if (crossed or big_move) and not seen_today and not due:
+                notify("Ledger: market moving now",
+                       f"Live: equities {abs(live_dd):.1f}% below their 1-year high, {day_move:+.1f}% versus yesterday's close"
+                       + (f", past the -{max(crossed)}% tier" if crossed else "") +
+                       ". This is a live snapshot, not a signal: tranches are confirmed on closing prices held for "
+                       f"{confirm_days} days. No action today.")
+                state["intraday_alert"] = today.isoformat()
+
+    # daily digest, one message with every fund's distance from its high
+    if evening and cfg.get("daily_digest", True) and state.get("last_digest") != today.isoformat():
+        body = " · ".join(f"{tk} {fund_dd[tk]:+.1f}%" for tk in fund_dd)
+        notify("Ledger: daily fund check",
+               f"Distance from 1-year highs: {body}. Portfolio equities {eq_dd:+.1f}%. "
+               "Your monthly plan already buys more of whatever has fallen.")
+        state["last_digest"] = today.isoformat()
+
+    if fund_msgs and not due:
+        notify("Ledger: a fund is deep below its high",
+               "; ".join(fund_msgs) + ". The portfolio as a whole has not confirmed a tier, so this is a single-fund move. "
+               "Buying more of it is reasonable if you have spare money; your monthly plan already tilts toward whatever has fallen. "
+               "Do not sell anything to fund it.")
 else:
     print("No equity data at all; skipping dip check.")
 
-if today.month == cfg["rebalance_month"] and state.get("last_rebalance_alert") != str(today.year):
+if evening and today.month == cfg["rebalance_month"] and state.get("last_rebalance_alert") != str(today.year):
     msg = "Open the app: Transactions > Rebalance shows the steps."
     L2 = load_ledger()
     if L2:
@@ -133,7 +234,7 @@ if today.month == cfg["rebalance_month"] and state.get("last_rebalance_alert") !
     state["last_rebalance_alert"] = str(today.year)
 
 key = today.strftime("%Y-%m")
-if today.day == cfg["tob_reminder_day"] and state.get("last_tob_alert") != key:
+if evening and today.day == cfg["tob_reminder_day"] and state.get("last_tob_alert") != key:
     two_ago = (today.replace(day=1) - dt.timedelta(days=1)).replace(day=1) - dt.timedelta(days=1)
     notify("Ledger: TOB declaration",
            f"Declare and pay the TOB for trades made in {two_ago.strftime('%B %Y')} by the end of this month (FPS Finance). Amounts are in the app.")
@@ -161,7 +262,7 @@ def load_ledger():
         print("could not read ledger:", e); return None
 
 plan_day = cfg.get("plan_day", 1)
-if today.day == plan_day and state.get("last_plan_alert") != today.strftime("%Y-%m"):
+if evening and today.day == plan_day and state.get("last_plan_alert") != today.strftime("%Y-%m"):
     L = load_ledger()
     if L:
         st_, assets, tx = L["settings"], L["assets"], L.get("tx", [])
