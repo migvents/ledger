@@ -5,7 +5,7 @@ and sends phone notifications through ntfy.sh when a dip tier is crossed,
 when the rebalance month starts, and on the monthly TOB reminder day.
 State (which tiers have already fired) is kept in state.json and committed back.
 """
-import json, os, datetime as dt, urllib.request, urllib.parse, urllib.error
+import json, os, time, datetime as dt, urllib.request, urllib.parse, urllib.error
 
 API = os.environ["TWELVE_DATA_KEY"]
 TOPIC = os.environ["NTFY_TOPIC"]
@@ -37,10 +37,9 @@ def series(f):
     attempts = [
         {"symbol": f["symbol"], "exchange": f.get("exchange", "")},
         {"symbol": f["symbol"]},
-        {"symbol": f["symbol"], "mic_code": "XETR"},
-        {"symbol": f.get("isin", ""), } if f.get("isin") else None,
     ]
-    for params in [a for a in attempts if a]:
+    for params in attempts:
+        time.sleep(2)  # free plan: 8 requests per minute
         params = {k: v for k, v in params.items() if v}
         params.update({"interval": "1day", "outputsize": 260, "apikey": API})
         j = get("https://api.twelvedata.com/time_series?" + urllib.parse.urlencode(params))
@@ -58,7 +57,7 @@ for f in cfg["funds"]:
         missing.append(f["ticker"]); continue
     last, peak = closes[0], max(closes)
     dd = (last / peak - 1) * 100
-    lines.append(f"{f['ticker']} {last:.2f} ({dd:+.1f}% vs 1y high)")
+    lines.append(f"{f['ticker']} (via {f['symbol']}) {dd:+.1f}% vs 1y high")
     if f.get("equity"):
         dd_sum += f["target"] * dd; wsum += f["target"]
 
