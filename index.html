@@ -259,13 +259,13 @@ const INFO = {
  moneyin:{t:"Money in",p:["Deposits minus withdrawals: the money you have actually committed. Everything above this is gain, everything below is loss. Deposits to Revolut that you have not logged are inferred from purchases; transfers to other brokers should be logged so the cash there is counted."]},
  alloc:{t:"Allocation",p:["The ring shows how your money is actually split between the funds today, in euros and percent, with your target beside each one for comparison. Colours match the fund charts and the holdings list."]},
  kpi:{t:"Key figures",p:["Set aside is money the plan has reserved for funds you buy a few times a year (gold, at your Bolero account) since their last purchase. The app counts it toward the target, so a fund waiting for its next purchase is not flagged as underweight.","Money in is deposits minus withdrawals. Gain is everything above that, so contributions never look like returns. Fund costs are the weighted average annual charge of what you hold, with the euro amount that represents at today's size. Worst drop recorded is the largest fall from a peak since the app started keeping daily values."]},
- funds:{t:"Funds",p:["Price history comes from Twelve Data's daily closes for each fund's US twin, converted with the EUR/USD rate of each day and scaled so today matches the EUR price you have. It goes back as far as the data allows (up to 20 years), so the charts are real history, not just days recorded since you installed the app. Tap Update history to refresh; it uses six requests of your daily allowance.","One card per fund: the current price, a chart of its price since the app started recording, the price change over each period, and your position: units held, value, share of the portfolio, what you paid, and the gain or loss on it. Price changes here are pure price moves; the gain on the right is your money's result including fees and TOB."]},
+ funds:{t:"Funds",p:["History downloads once per device and is then shared through your sync, so you normally only need to press Update history on one device.","Price history comes from Twelve Data's daily closes for each fund's US twin, converted with the EUR/USD rate of each day and scaled so today matches the EUR price you have. It goes back as far as the data allows (up to 20 years), so the charts are real history, not just days recorded since you installed the app. Tap Update history to refresh; it uses six requests of your daily allowance.","One card per fund: the current price, a chart of its price since the app started recording, the price change over each period, and your position: units held, value, share of the portfolio, what you paid, and the gain or loss on it. Price changes here are pure price moves; the gain on the right is your money's result including fees and TOB."]},
  acc:{t:"Accumulating vs distributing",p:["Accumulating ETFs reinvest dividends inside the fund. For a Belgian investor this avoids the 30% withholding tax on distributions and means nothing to reinvest by hand. Irish-domiciled funds are the standard choice for this."]},
 };
 const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
 
 // ---------- state ----------
-const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 36 · 2026-09-03";
+const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 37 · 2026-09-03";
 let mem=null;
 const defaults=()=>({
  settings:{band:5,tob:0.12,buffer:0,priceDate:new Date().toISOString().slice(0,10),rebalanceMonth:1,lastRebalance:"",monthly:200,maxOrders:5,autoPrices:true,dipTranche:0,dipTiers:[15,25,35],dipFired:[]},
@@ -286,6 +286,7 @@ async function load(){
   if(fillProxies()){ try{ if(hasStore())localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
   render(); setStatus(hasStore()?"Saved on this device":"No storage available");
   await pullCloud(!S.tx||!S.tx.length);
+  if((S.settings.pollSeconds||0)<180){ S.settings.pollSeconds=300; try{ if(hasStore())localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
   startPolling();
   const hh=loadHist(); const stale=!hh||(Date.now()-new Date(hh.fetchedAt).getTime())>20*3600*1000;
   if(S.settings.apiKey&&stale&&S.assets.some(a=>a.proxy&&a.price>0)) setTimeout(fetchHistory,65000);
@@ -310,7 +311,7 @@ async function save(){
 function setStatus(t){document.getElementById("saved").textContent=t;}
 
 // ---------- cloud sync via encrypted GitHub gist ----------
-const GIST_FILE="ledger.enc"; let syncing=false;
+const GIST_FILE="ledger.enc"; const HIST_FILE="ledger-hist.enc"; let syncing=false;
 const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b))), unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
 async function deriveKey(pass,salt){const km=await crypto.subtle.importKey("raw",new TextEncoder().encode(pass),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:150000,hash:"SHA-256"},km,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);}
 async function encrypt(text,pass){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));const key=await deriveKey(pass,salt);const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(text));return JSON.stringify({v:1,salt:b64(salt),iv:b64(iv),data:b64(ct)});}
@@ -325,7 +326,10 @@ async function pushCloud(force){
   syncing=true;
   try{ const payload=exportable(); payload.updatedAt=new Date().toISOString(); S.settings.updatedAt=payload.updatedAt;
     const blob=await encrypt(JSON.stringify(payload),S.settings.syncPass);
-    const body=JSON.stringify({description:"Ledger portfolio (encrypted)",public:false,files:{[GIST_FILE]:{content:blob}}});
+    const files={[GIST_FILE]:{content:blob}};
+    const h=loadHist();
+    if(h&&h.fetchedAt&&h.fetchedAt!==S.settings.histPushed){ files[HIST_FILE]={content:await encrypt(JSON.stringify(h),S.settings.syncPass)}; S.settings.histPushed=h.fetchedAt; }
+    const body=JSON.stringify({description:"Ledger portfolio (encrypted)",public:false,files});
     let r; if(S.settings.gistId){ r=await gh("https://api.github.com/gists/"+S.settings.gistId,{method:"PATCH",body}); if(r.status===404){S.settings.gistId="";} }
     if(!S.settings.gistId){ r=await gh("https://api.github.com/gists",{method:"POST",body}); const j=await r.json(); if(j.id){S.settings.gistId=j.id; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}} }
     if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.message||("HTTP "+r.status)); }
@@ -356,6 +360,9 @@ async function pullCloud(force,manual){
     const r=await gh("https://api.github.com/gists/"+S.settings.gistId); if(!r.ok)throw new Error("gist not reachable ("+r.status+")");
     const j=await r.json(); const f=j.files[GIST_FILE]; let content=f.content; if(f.truncated){content=await (await fetch(f.raw_url)).text();}
     const text=await decrypt(content,S.settings.syncPass); const cloud=JSON.parse(text);
+    if(j.files[HIST_FILE]){ try{ const hf=j.files[HIST_FILE]; let hc=hf.content; if(hf.truncated)hc=await (await fetch(hf.raw_url)).text();
+        const ch=JSON.parse(await decrypt(hc,S.settings.syncPass)); const lh=loadHist();
+        if(ch&&ch.series&&(!lh||!lh.fetchedAt||ch.fetchedAt>lh.fetchedAt)){ saveHist(ch); syncStatus("Price history received from your other device."); } }catch(e){} }
     if(!force&&S.settings.updatedAt&&cloud.updatedAt&&cloud.updatedAt<=S.settings.updatedAt){ S.settings.cloudSeen=j.updated_at||S.settings.cloudSeen; syncStatus("Local data is newer; nothing pulled."); return false; }
     const keep={ghToken:S.settings.ghToken,syncPass:S.settings.syncPass,gistId:S.settings.gistId,apiKey:S.settings.apiKey||cloud.settings.apiKey};
     S={...cloud,settings:{...cloud.settings,...keep,cloudSeen:(j.updated_at||new Date().toISOString())}}; applyCreds(); try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
@@ -414,7 +421,7 @@ async function fetchHistory(){
   const withP=S.assets.filter(a=>a.proxy&&a.price>0);
   if(!withP.length){ say((noProxy.length?"No US twin set for "+noProxy.join(", ")+" (Settings). ":"")+(noPrice.length?"No current price for "+noPrice.join(", ")+" (Prices tab).":"")); return; }
   if(histBusy){ say("Already downloading…"); return; }
-  histBusy=true; say("Downloading daily history (about a minute; live price updates are paused meanwhile)…");
+  histBusy=true; say("Downloading daily history. This takes about a minute and pauses price updates. Close the app on your other device while it runs.");
   try{
     const sinceLast=S.settings.lastAuto?Date.now()-new Date(S.settings.lastAuto).getTime():1e9;
     if(sinceLast<65000){ say("Waiting for the API's minute window to free up…"); await new Promise(r=>setTimeout(r,65000-sinceLast)); }
@@ -431,7 +438,7 @@ async function fetchHistory(){
       out.series[a.ticker]=eur.map(x=>({d:x.d,p:Math.round(x.p*factor*10000)/10000}));
       say(`Downloaded ${Object.keys(out.series).length} of ${withP.length}…`);
     }
-    saveHist(out); say(`History to ${out.series[withP[0].ticker].slice(-1)[0].d}, ${out.series[withP[0].ticker].length} days per fund. Updated ${new Date().toLocaleTimeString()}.`);
+    saveHist(out); S.settings.histPushed=null; pushCloud(); say(`History to ${out.series[withP[0].ticker].slice(-1)[0].d}, ${out.series[withP[0].ticker].length} days per fund. Updated ${new Date().toLocaleTimeString()}.`);
     render();
   }catch(e){ say("Could not download history: "+e.message); }
   finally{ histBusy=false; }
@@ -655,7 +662,7 @@ function spark(vals,color,W=680,Hh=90,marks=[],dates=[]){
   const up=vals[vals.length-1]>=vals[0];
   const hoverAttrs=dates.length?` class="hoverable" data-vals="${vals.map(v=>Math.round(v*100)/100).join(",")}" data-dates="${dates.join(",")}" data-pad="${pad}" data-w="${W}" data-h="${Hh}" data-lo="${lo}" data-hi="${hi}"`:"";
   const cross=dates.length?`<g class="cross" style="display:none"><line y1="${pad}" y2="${Hh-pad}" stroke="var(--ink2)" stroke-dasharray="3 3"/><circle r="4" fill="var(--ink)"/></g>`:"";
-  const dots=(marks||[]).map(m=>`<circle class="mark" data-label="${(m.label||"").replace(/"/g,"&quot;")}" cx="${X(m.i).toFixed(1)}" cy="${Y(vals[m.i]).toFixed(1)}" r="7" fill="${m.sell?"var(--red)":"var(--green)"}" stroke="#fff" stroke-width="2" style="cursor:pointer"/>`).join("");
+  const dots=(marks||[]).map(m=>`<circle class="mark" data-label="${(m.label||"").replace(/"/g,"&quot;")}" cx="${X(m.i).toFixed(1)}" cy="${Y(vals[m.i]).toFixed(1)}" r="8" fill="${m.sell?"var(--red)":"var(--green)"}" stroke="#fff" stroke-width="2.5" style="cursor:pointer"/>`).join("");
   return `<svg viewBox="0 0 ${W} ${Hh}" width="100%" style="display:block;touch-action:pan-y"${hoverAttrs}><path d="${d} L${X(vals.length-1).toFixed(1)} ${Hh-pad} L${pad} ${Hh-pad} Z" fill="${up?"var(--pale-green)":"var(--pale-red)"}" opacity=".55"/><path d="${d}" fill="none" stroke="${color||(up?"var(--green)":"var(--red)")}" stroke-width="2.5" stroke-linejoin="round"/>${cross}${dots}</svg>`;
 }
 function changeRows(series,cur,periods,fmt){
@@ -1019,6 +1026,15 @@ document.addEventListener("pointerover",e=>{ const m=e.target.closest&&e.target.
 document.addEventListener("pointerout",e=>{ if(e.target.closest&&e.target.closest("button.info")) tipEl.style.display="none"; });
 document.addEventListener("pointermove",e=>{ const m=e.target.closest&&e.target.closest("circle.mark"); if(m){showTip(m,e.clientX,e.clientY);return;} if(!lineHover(e)) tipEl.style.display="none"; });
 document.addEventListener("pointerdown",e=>{ lineHover(e); });
+// touch: dragging along a chart reads values; tapping a dot shows its trade
+let touchSvg=null;
+document.addEventListener("touchstart",e=>{ const t=e.touches[0]; const el=document.elementFromPoint(t.clientX,t.clientY);
+  const mark=el&&el.closest&&el.closest("circle.mark"); if(mark){ showTip(mark,t.clientX,t.clientY); return; }
+  const svg=el&&el.closest&&el.closest("svg.hoverable"); if(svg){ touchSvg=svg; lineHover({target:svg,clientX:t.clientX,clientY:t.clientY}); } },{passive:true});
+document.addEventListener("touchmove",e=>{ if(!touchSvg)return; const t=e.touches[0];
+  const r=touchSvg.getBoundingClientRect(); if(t.clientY<r.top-30||t.clientY>r.bottom+30){ return; }
+  e.preventDefault(); lineHover({target:touchSvg,clientX:t.clientX,clientY:t.clientY}); },{passive:false});
+document.addEventListener("touchend",()=>{ setTimeout(()=>{ tipEl.style.display="none"; document.querySelectorAll("g.cross").forEach(g=>g.style.display="none"); touchSvg=null; },2500); });
 document.addEventListener("pointerout",e=>{ const svg=e.target.closest&&e.target.closest("svg.hoverable"); if(svg&&!svg.contains(e.relatedTarget)){ tipEl.style.display="none"; const g=svg.querySelector("g.cross"); if(g)g.style.display="none"; } });
 document.addEventListener("click",e=>{ const m=e.target.closest&&e.target.closest("circle.mark"); if(!m)return;
   document.getElementById("sheetcard").innerHTML=`<h3>Trade</h3><p>${m.dataset.label}</p><div class="actions"><button class="btn quiet" id="close">Close</button></div>`; document.getElementById("sheet").classList.add("on"); });
