@@ -5,90 +5,110 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ledger</title>
 <meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --paper:#F7F6F1; --ink:#1C2430; --ink2:#5A6472; --rule:#D9D6CC;
-  --blue:#2F5D8A; --gold:#A8802B; --red:#A9423B; --green:#3C7A5A;
-  --pale-red:#F3DEDC; --pale-green:#DDEEE3; --pale-gold:#F3E9CF; --white:#FFFFFF;
+  --bg:#0F1B2D; --bg2:#152541; --paper:#F4F5F7; --card:#FFFFFF; --ink:#111827; --ink2:#6B7280; --rule:#E5E7EB;
+  --blue:#2563EB; --blue2:#60A5FA; --gold:#C8962E; --red:#DC2626; --green:#16A34A;
+  --pale-red:#FEE2E2; --pale-green:#DCFCE7; --pale-gold:#FEF3C7; --pale-blue:#DBEAFE; --white:#FFFFFF;
+  --shadow:0 1px 2px rgba(17,24,39,.06),0 8px 24px rgba(17,24,39,.06);
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
-h1,h2{font-family:Georgia,"Times New Roman",serif;font-weight:normal;margin:0}
-h1{font-size:28px;line-height:1.1}
-h2{font-size:19px;margin:22px 0 10px}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 Inter,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2{font-family:Fraunces,Georgia,serif;font-weight:600;margin:0;letter-spacing:-.01em}
+h1{font-size:26px;line-height:1.1;color:var(--ink)}
+h2{font-size:18px;margin:26px 0 10px;display:flex;align-items:center;gap:6px}
 button{font:inherit;cursor:pointer}
-.wrap{max-width:720px;margin:0 auto;padding:18px 16px 90px}
-.top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
-.top small{color:var(--ink2)}
-.hero{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin:14px 0 6px;padding-bottom:14px;border-bottom:2px solid var(--ink)}
-.hero .big{font-family:Georgia,serif;font-size:34px;line-height:1;grid-column:1/-1}
-.hero .k{color:var(--ink2);font-size:13px}
-.hero .v{font-size:17px}
+.wrap{max-width:720px;margin:0 auto;padding:0 16px 96px}
+.top{background:var(--card);margin:14px 0 0;padding:18px 16px 20px;border-radius:16px;box-shadow:var(--shadow);color:var(--ink)}
+.top .bar{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.top small{color:var(--ink2);font-size:12px}
+.hero{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-top:14px}
+.hero .big{font-family:Fraunces,Georgia,serif;font-size:40px;line-height:1;grid-column:1/-1;font-weight:600;letter-spacing:-.02em;color:var(--blue)}
+.hero .k{color:var(--ink2);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.hero .v{font-size:17px;font-weight:500;margin-top:2px}
 .pos{color:var(--green)} .neg{color:var(--red)}
-.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--rule);display:flex;justify-content:space-around;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
-.tabs button{background:none;border:0;color:var(--ink2);padding:6px 10px;border-radius:6px;font-size:13px}
-.tabs button.on{color:var(--ink);background:var(--paper);font-weight:600}
+.tabs{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-top:1px solid var(--rule);display:flex;justify-content:space-around;padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:5}
+.tabs button{background:none;border:0;color:var(--ink2);padding:6px 6px;border-radius:10px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px}
+.tabs button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs button.on{color:var(--blue);font-weight:600}
 .panel{display:none}.panel.on{display:block}
+.card{background:var(--card);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px}
 table{width:100%;border-collapse:collapse;font-size:14px}
-th{text-align:left;font-weight:600;color:var(--ink2);font-size:12px;padding:6px 6px;border-bottom:1px solid var(--ink)}
-td{padding:9px 6px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{text-align:left;font-weight:600;color:var(--ink2);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 6px;border-bottom:1px solid var(--rule)}
+td{padding:10px 6px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:12px;white-space:nowrap}
+.tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
 .tag.ok{background:var(--pale-green);color:var(--green)}
 .tag.over{background:var(--pale-red);color:var(--red)}
 .tag.under{background:var(--pale-gold);color:var(--gold)}
-.bar{height:8px;background:var(--rule);border-radius:4px;position:relative;margin-top:5px}
-.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--blue);border-radius:4px}
-.bar b{position:absolute;top:-3px;width:2px;height:14px;background:var(--ink)}
-.next{margin:14px 0;padding:12px 14px;background:var(--pale-gold);border-left:3px solid var(--gold);border-radius:0 6px 6px 0}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.bar{height:8px;background:var(--rule);border-radius:4px;position:relative;margin-top:8px}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--blue),var(--blue2));border-radius:4px}
+.bar b{position:absolute;top:-4px;width:2px;height:16px;background:var(--ink)}
+.next{margin:12px 0;padding:14px 16px;background:var(--card);border-left:4px solid var(--gold);border-radius:12px;box-shadow:var(--shadow)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .row.one{grid-template-columns:1fr}
-label{display:block;font-size:12px;color:var(--ink2);margin-bottom:3px}
-input,select{width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--white);font:inherit;color:var(--ink)}
+label{display:block;font-size:12px;color:var(--ink2);margin-bottom:4px;font-weight:500}
+input,select{width:100%;padding:11px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--white);font:inherit;color:var(--ink)}
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
-.btn{background:var(--ink);color:var(--white);border:0;padding:11px 16px;border-radius:6px;font-weight:600}
-.btn.quiet{background:none;color:var(--ink);border:1px solid var(--rule)}
-.btn.danger{background:none;color:var(--red);border:1px solid var(--red)}
+.btn{background:var(--blue);color:var(--white);border:0;padding:12px 18px;border-radius:10px;font-weight:600}
+.btn.quiet{background:var(--white);color:var(--ink);border:1px solid var(--rule)}
+.btn.danger{background:var(--white);color:var(--red);border:1px solid var(--red)}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--ink2);color:var(--ink2);background:none;font-size:11px;font-family:Georgia,serif;font-style:italic;margin-left:4px;vertical-align:middle;padding:0}
+.info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--ink2);color:var(--ink2);background:none;font-size:11px;font-family:Fraunces,Georgia,serif;font-style:italic;margin-left:2px;vertical-align:middle;padding:0}
 .del{background:none;border:0;color:var(--red);font-size:12px;padding:0}
 .muted{color:var(--ink2);font-size:13px}
-.empty{padding:20px;border:1px dashed var(--rule);border-radius:6px;color:var(--ink2);text-align:center}
-.sheet{position:fixed;inset:0;background:rgba(28,36,48,.45);display:none;align-items:flex-end;justify-content:center;z-index:9}
+.empty{padding:22px;border:1px dashed var(--rule);border-radius:12px;color:var(--ink2);text-align:center;background:var(--card)}
+.sheet{position:fixed;inset:0;background:rgba(15,27,45,.5);display:none;align-items:flex-end;justify-content:center;z-index:9}
 .sheet.on{display:flex}
-.card{background:var(--white);width:100%;max-width:720px;max-height:80vh;overflow:auto;border-radius:14px 14px 0 0;padding:20px 18px 32px}
-.card h3{font-family:Georgia,serif;font-weight:normal;font-size:20px;margin:0 0 8px}
-.card p{margin:0 0 10px}
-.learn button.item{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--rule);padding:12px 2px;font-size:15px;color:var(--ink)}
-.status{font-size:12px;color:var(--ink2)}
-@media (prefers-reduced-motion:no-preference){.card{animation:up .18s ease-out}@keyframes up{from{transform:translateY(20px);opacity:.6}}}
+.cardsheet{background:var(--white);width:100%;max-width:720px;max-height:80vh;overflow:auto;border-radius:18px 18px 0 0;padding:22px 20px 34px}
+.cardsheet h3{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:21px;margin:0 0 10px}
+.cardsheet p{margin:0 0 10px;line-height:1.55}
+.learn button.item{display:block;width:100%;text-align:left;background:var(--card);border:0;border-radius:12px;padding:14px 16px;font-size:15px;color:var(--ink);margin-bottom:8px;box-shadow:var(--shadow)}
+.status{font-size:12px}
+.fund{background:var(--card);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px}
+.fund .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.fund .price{font-family:Fraunces,Georgia,serif;font-size:22px;font-weight:600}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+@media (prefers-reduced-motion:no-preference){.cardsheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(20px);opacity:.6}}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><h1>Ledger</h1><small id="saved" class="status"></small></div>
-
-  <!-- OVERVIEW -->
-  <section id="p-overview" class="panel on">
+  <div class="top"><div class="bar"><h1>Ledger</h1><small id="saved" class="status"></small></div>
     <div class="hero">
       <div class="big" id="h-total">€0</div>
       <div><div class="k">Net contributions</div><div class="v" id="h-contrib">€0</div></div>
       <div><div class="k">Gain / loss <button class="info" data-info="gain">i</button></div><div class="v" id="h-gain">€0</div></div>
       <div><div class="k">Cash at broker <button class="info" data-info="cash">i</button></div><div class="v" id="h-cash">€0</div></div>
-      <div><div class="k">Fees and tax paid <button class="info" data-info="tob">i</button></div><div class="v" id="h-fees">€0</div></div>
+      <div><div class="k">Fees and TOB <button class="info" data-info="revolut">i</button></div><div class="v" id="h-fees">€0</div></div>
     </div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <section id="p-overview" class="panel on">
+    <h2>Performance <button class="info" data-info="perf">i</button></h2>
+    <div class="card"><div id="perfchart"></div><div id="perf"></div></div>
     <div class="next" id="alarm" style="display:none;background:var(--pale-red);border-left-color:var(--red)"></div>
     <div class="next" id="dip" style="display:none;background:var(--pale-green);border-left-color:var(--green)"></div>
     <div class="next" id="next"></div>
     <div class="next" id="tobdue" style="display:none;background:var(--white);border-left-color:var(--blue)"></div>
     <h2>Holdings <button class="info" data-info="drift">i</button></h2>
-    <div id="holdings"></div>
+    <div class="card" id="holdings"></div>
     <p class="muted" id="pricedate"></p>
+  </section>
+
+  <!-- FUNDS -->
+  <section id="p-funds" class="panel">
+    <h2>Funds <button class="info" data-info="funds">i</button></h2>
+    <div id="fundlist"></div>
   </section>
 
   <!-- TRANSACTIONS -->
   <section id="p-tx" class="panel">
     <h2>Add a transaction</h2>
+    <div class="card">
     <div class="row"><div><label>Date</label><input type="date" id="t-date"></div><div><label>Type</label><select id="t-type"><option>Buy</option><option>Sell</option><option>Deposit</option><option>Withdrawal</option><option>Fee</option></select></div></div>
     <div class="row" id="trade-fields"><div><label>Asset</label><select id="t-ticker"></select></div><div><label>Units</label><input type="text" id="t-units" inputmode="decimal"></div></div>
     <div class="row" id="trade-fields2"><div><label>Price per unit (€)</label><input type="text" id="t-price" inputmode="decimal"></div><div><label>Broker fee (€)</label><input type="text" id="t-fee" value="0" inputmode="decimal"></div></div>
@@ -97,29 +117,35 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outl
     <div class="row one" id="tob-row"><div><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="t-tobpaid" style="width:auto"> TOB already collected by the broker (Bolero, DEGIRO, Saxo)</label></div></div>
     <p class="muted" id="t-preview"></p>
     <div class="actions"><button class="btn" id="t-add">Add transaction</button></div>
+    </div>
     <h2>History</h2>
-    <div id="txlist"></div>
+    <div class="card" id="txlist"></div>
   </section>
 
   <!-- PRICES -->
   <section id="p-prices" class="panel">
     <h2>Current prices <button class="info" data-info="prices">i</button></h2>
+    <div class="card">
     <div class="row one"><div><label>Price date</label><input type="date" id="pr-date"></div></div>
     <div id="pricelist"></div>
     <p class="muted" id="pr-status"></p>
     <div class="actions"><button class="btn quiet" id="pr-fetch">Refresh estimates</button><button class="btn" id="pr-save">Save prices</button></div>
+    </div>
     <p class="muted">Type each fund's price from Revolut once and save. From then on the app moves each price in step with its US-listed twin and the EUR/USD rate, refreshing every minute while open. Re-type a Revolut price whenever you want to re-anchor (a good habit at the January check).</p>
   </section>
 
   <!-- SETTINGS -->
   <section id="p-settings" class="panel">
     <h2>Target allocation <button class="info" data-info="targets">i</button> <button class="info" data-info="schedule">i</button></h2>
+    <div class="card">
     <div id="assetlist"></div>
     <p class="muted" id="targetsum"></p>
     <div class="row"><div><label>New asset ticker</label><input id="a-ticker" placeholder="e.g. VWCE"></div><div><label>Name</label><input id="a-name"></div></div>
     <div class="row one"><div><label>ISIN (helps price lookup)</label><input id="a-isin" placeholder="e.g. IE00BK5BR733"></div></div>
     <div class="row"><div><label>Target %</label><input type="text" id="a-target" inputmode="decimal"></div><div><label>&nbsp;</label><button class="btn quiet" id="a-add" style="width:100%">Add asset</button></div></div>
+    </div>
     <h2>Rules</h2>
+    <div class="card">
     <div class="row"><div><label>Rebalance band (percentage points) <button class="info" data-info="band">i</button></label><input type="text" inputmode="decimal" id="s-band" inputmode="decimal"></div><div><label>TOB rate % <button class="info" data-info="tob">i</button></label><input type="text" id="s-tob" inputmode="decimal"></div></div>
     <div class="row one"><div><label>Cash buffer you want to keep outside investments (€) <button class="info" data-info="buffer">i</button></label><input type="text" id="s-buffer" inputmode="decimal"></div></div>
     <div class="row one"><div><label>Twelve Data API key <button class="info" data-info="apikey">i</button></label><input id="s-key" placeholder="paste your key" autocomplete="off"></div></div>
@@ -128,14 +154,19 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outl
     <div class="row"><div><label>Extra tranche per dip tier (€) <button class="info" data-info="dip">i</button></label><input type="text" id="s-dip" inputmode="decimal"></div><div><label>Dip tiers (% below peak)</label><input id="s-tiers" placeholder="15,25,35"></div></div>
     <div class="row"><div><label>Annual rebalance month <button class="info" data-info="month">i</button></label><select id="s-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div><div><label>Last rebalance done on</label><input type="date" id="s-last"></div></div>
     <div class="actions"><button class="btn" id="s-save">Save rules</button></div>
+    </div>
     <h2>Sync between devices <button class="info" data-info="sync">i</button></h2>
+    <div class="card">
     <div class="row one"><div><label>GitHub token (fine-grained, Gists read/write only)</label><input id="s-gh" placeholder="github_pat_…" autocomplete="off"></div></div>
     <div class="row one"><div><label>Sync passphrase (encrypts your data; same on every device)</label><input id="s-pass" type="password" autocomplete="off"></div></div>
     <p class="muted" id="sync-status"></p>
     <div class="actions"><button class="btn" id="sync-save">Save and sync now</button><button class="btn quiet" id="sync-pull">Pull from cloud</button></div>
+    </div>
     <h2>Your data</h2>
+    <div class="card">
     <p class="muted">Data is stored in this browser and, if sync is set up, in your encrypted gist. Export a backup now and then.</p>
     <div class="actions"><button class="btn quiet" id="d-export">Copy backup to clipboard</button><button class="btn quiet" id="d-import">Paste backup</button><button class="btn danger" id="d-reset">Delete everything</button></div>
+    </div>
   </section>
 
   <!-- LEARN -->
@@ -146,14 +177,15 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outl
 </div>
 
 <nav class="tabs">
-  <button class="on" data-tab="overview">Overview</button>
-  <button data-tab="tx">Transactions</button>
-  <button data-tab="prices">Prices</button>
-  <button data-tab="settings">Settings</button>
-  <button data-tab="learn">Learn</button>
+  <button class="on" data-tab="overview"><svg viewBox="0 0 24 24"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Overview</button>
+  <button data-tab="funds"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>Funds</button>
+  <button data-tab="tx"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Transactions</button>
+  <button data-tab="prices"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 010 3h-3a1.5 1.5 0 000 3h4"/></svg>Prices</button>
+  <button data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>Settings</button>
+  <button data-tab="learn"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>Learn</button>
 </nav>
 
-<div class="sheet" id="sheet"><div class="card" id="sheetcard"></div></div>
+<div class="sheet" id="sheet"><div class="cardsheet" id="sheetcard"></div></div>
 
 <script>
 // ---------- explanations ----------
@@ -180,6 +212,8 @@ const INFO = {
  dip:{t:"The buy-the-dip rule",p:["The app records the highest price it has seen for each fund and measures how far the equity slices (gold excluded) have fallen from those peaks, weighted by target. When the fall crosses a tier (default 15%, 25%, 35%), it tells you to invest one extra tranche of the amount you set here, on top of the normal monthly plan, into the funds furthest below target. Each tier fires once per episode; the counter resets once equities are back within 5% of the peak.","How much: only money beyond your cash buffer, and decide the tranche now, while calm. Three tiers exist so you do not spend all your spare cash at −15% and have nothing left at −35%. If your spare savings are irregular, set the tranche to what you could put in three times without touching the buffer.","Peaks are only recorded when the app has seen the price, so a spike between openings may be missed; the rule is deliberately approximate."]},
  schedule:{t:"Buy months",p:["Leave blank for funds bought monthly through the Revolut plan. For a fund bought at another broker with a fixed fee per order, enter the months you buy in (for example 3,9 for March and September). The app then removes that fund from the monthly Revolut split, tells you how much to set aside each month, and in those months shows how much has accumulated since the last purchase."]},
  sync:{t:"Sync between devices",p:["Your data is saved in a private file (a 'gist') on your own GitHub account, encrypted with a passphrase before it leaves the device, so GitHub only ever stores scrambled text. Each device that has the token and the same passphrase reads and writes the same file; the newest copy wins.","To create the token: GitHub → your profile picture → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token. Name it 'ledger sync', set expiration to one year, leave repository access on 'Public repositories (read-only)', and under Account permissions set Gists to 'Read and write'. Copy the token once; GitHub will not show it again.","The token and passphrase stay on each device and are never uploaded. If you lose the passphrase the cloud copy cannot be read; your device copy still works and will re-upload."]},
+ perf:{t:"Performance",p:["The app records the portfolio's total value once a day. Each row shows what it was worth on the nearest recorded day for that period, and the change in euros and percent to today's value. The last column shows how much of that change is money you deposited in the meantime, so you can tell growth from contributions at a glance. Periods longer than the recorded history show the date recording began."]},
+ funds:{t:"Funds",p:["One card per fund: the current price, a chart of its price since the app started recording, the price change over each period, and your position: units held, value, share of the portfolio, what you paid, and the gain or loss on it. Price changes here are pure price moves; the gain on the right is your money's result including fees and TOB."]},
  acc:{t:"Accumulating vs distributing",p:["Accumulating ETFs reinvest dividends inside the fund. For a Belgian investor this avoids the 30% withholding tax on distributions and means nothing to reinvest by hand. Irish-domiciled funds are the standard choice for this."]},
 };
 const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
@@ -292,6 +326,13 @@ function render(){
   const g=c.total-(c.deposits-c.withdrawals); const ge=document.getElementById("h-gain"); ge.textContent=eur(g); ge.className="v "+(g<0?"neg":g>0?"pos":"");
   document.getElementById("h-cash").textContent=eur(c.cash);
   document.getElementById("h-fees").textContent=eur(c.fees);
+  // daily snapshot of value and net contributions
+  S.history=S.history||[]; const todayKey=new Date().toISOString().slice(0,10);
+  if(c.total>0&&S.assets.every(a=>a.price>0)){ const lastH=S.history[S.history.length-1];
+    const pmap={}; S.assets.forEach(a=>pmap[a.ticker]=Math.round(a.price*100)/100);
+    if(!lastH||lastH.d!==todayKey){ S.history.push({d:todayKey,v:Math.round(c.total*100)/100,k:Math.round((c.deposits-c.withdrawals)*100)/100,p:pmap}); if(S.history.length>9000)S.history.shift(); try{ if(hasStore())localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
+    else { lastH.v=Math.round(c.total*100)/100; lastH.k=Math.round((c.deposits-c.withdrawals)*100)/100; lastH.p=pmap; } }
+  renderPerf(c); renderFunds(c);
   document.getElementById("pricedate").textContent=S.assets.some(a=>a.price>0)?"Valued at prices from "+S.settings.priceDate+(S.settings.autoPrices!==false?" · "+(S.settings.priceNotes||""):". Update them in Prices."):"Prices will be fetched automatically; or enter them in the Prices tab.";
   // annual alarm
   const al=document.getElementById("alarm"); const now=new Date(); const rm=S.settings.rebalanceMonth||1;
@@ -365,9 +406,9 @@ function render(){
   if(due.length){ td.style.display=""; td.innerHTML=`<strong>TOB to declare yourself (Revolut does not).</strong> `+due.map(d=>`${eur(d.amt)} from ${d.k} trades, due by ${d.dl.toISOString().slice(0,10)}`).join("; ")+`. <button class="info" data-info="tobfile">i</button>`; } else td.style.display="none";
   // holdings
   const hl=document.getElementById("holdings");
-  hl.innerHTML=c.holdings.map(h=>{const st=Math.abs(h.drift)>band?(h.drift>0?["over","Overweight"]:["under","Underweight"]):["ok","On target"];
+  hl.innerHTML=c.holdings.map((h,idx)=>{const st=Math.abs(h.drift)>band?(h.drift>0?["over","Overweight"]:["under","Underweight"]):["ok","On target"];
     return `<div style="padding:10px 0;border-bottom:1px solid var(--rule)">
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><div><strong>${h.a.ticker}</strong> <span class="muted">${h.a.name}</span></div><span class="tag ${st[0]}">${st[1]}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><div><span class="dot" style="background:${FUNDCOL[c.holdings.indexOf(h)%FUNDCOL.length]}"></span><strong>${h.a.ticker}</strong> <span class="muted">${h.a.name}</span></div><span class="tag ${st[0]}">${st[1]}</span></div>
       <div class="bar"><i style="width:${Math.min(100,h.weight)}%"></i><b style="left:${h.a.target}%"></b></div>
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:6px;flex-wrap:wrap;gap:4px 12px">
         <span>${h.weight.toFixed(1)}% now, target ${h.a.target}% (${h.drift>=0?"+":""}${h.drift.toFixed(1)} pts)</span>
@@ -390,6 +431,59 @@ function render(){
   const sel=document.getElementById("t-ticker"); const cur=sel.value; sel.innerHTML=S.assets.map(a=>`<option>${a.ticker}</option>`).join(""); if(cur)sel.value=cur;
   document.getElementById("learnlist").innerHTML=LEARN_ORDER.map(k=>`<button class="item" data-info="${k}">${INFO[k].t}</button>`).join("");
   preview();
+}
+const FUNDCOL=["#2563EB","#7C3AED","#0891B2","#059669","#C8962E","#DB2777"];
+function spark(vals,color,W=680,Hh=90){
+  if(vals.length<2) return "";
+  const pad=6, lo=Math.min(...vals), hi=Math.max(...vals), span=(hi-lo)||1;
+  const X=i=>pad+(W-2*pad)*i/(vals.length-1), Y=v=>Hh-pad-(Hh-2*pad)*(v-lo)/span;
+  const d=vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+  const up=vals[vals.length-1]>=vals[0];
+  return `<svg viewBox="0 0 ${W} ${Hh}" width="100%" style="display:block"><path d="${d} L${X(vals.length-1).toFixed(1)} ${Hh-pad} L${pad} ${Hh-pad} Z" fill="${up?"var(--pale-green)":"var(--pale-red)"}" opacity=".6"/><path d="${d}" fill="none" stroke="${color||(up?"var(--green)":"var(--red)")}" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+}
+function changeRows(series,cur,periods,fmt){
+  const now=new Date(series[series.length-1].d);
+  return periods.map(([lab,m])=>{ const t=new Date(now); t.setMonth(t.getMonth()-m); const key=t.toISOString().slice(0,10);
+    if(series[0].d>key) return `<span class="muted">${lab}: from ${series[0].d}</span>`;
+    let then=series[0]; for(const h of series){ if(h.d<=key)then=h; else break; }
+    const ch=cur-then.x, pct=then.x>0?ch/then.x*100:0;
+    return `<span><span class="muted">${lab}</span> <span class="${ch<0?"neg":ch>0?"pos":""}">${pct>=0?"+":""}${pct.toFixed(1)}%</span></span>`; }).join(" · ");
+}
+function renderFunds(c){
+  const el=document.getElementById("fundlist"); if(!el)return; const H=S.history||[];
+  const periods=[["1m",1],["6m",6],["1y",12],["5y",60],["10y",120]];
+  el.innerHTML=c.holdings.map(h=>{
+    const ser=H.filter(x=>x.p&&x.p[h.a.ticker]>0).map(x=>({d:x.d,x:x.p[h.a.ticker]}));
+    const chart=ser.length>=2?spark(ser.map(x=>x.x),FUNDCOL[c.holdings.indexOf(h)%FUNDCOL.length]):`<p class="muted">Price history from ${ser.length?ser[0].d:"today"}.</p>`;
+    const rows=ser.length>=2?changeRows(ser,h.a.price,periods):"";
+    const gainPct=h.cost>0?h.unreal/h.cost*100:0;
+    const col=FUNDCOL[c.holdings.indexOf(h)%FUNDCOL.length];
+    return `<div class="fund">
+      <div class="head"><div><span class="dot" style="background:${col}"></span><strong>${h.a.ticker}</strong> <span class="muted">${h.a.name}</span></div><div class="price">${eur(h.a.price)}</div></div>
+      ${chart}
+      <div style="font-size:13px;margin-top:6px">${rows}</div>
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;font-size:13px;margin-top:6px">
+        <span>${h.units.toLocaleString("en-GB",{maximumFractionDigits:4})} units · ${eur(h.value)} · ${h.weight.toFixed(1)}% of portfolio</span>
+        <span>Paid ${eur(h.cost)} · <span class="${h.unreal<0?"neg":h.unreal>0?"pos":""}">${h.unreal>=0?"+":""}${eur(h.unreal)} (${gainPct>=0?"+":""}${gainPct.toFixed(1)}%)</span></span></div>
+    </div>`; }).join("");
+}
+function renderPerf(c){
+  const el=document.getElementById("perf"), ch=document.getElementById("perfchart"); const H=S.history||[];
+  if(H.length<2){ el.innerHTML=`<p class="muted">History starts ${H.length?H[0].d:"today"}; comparisons appear as the app records daily values.</p>`; ch.innerHTML=""; return; }
+  const now=new Date(H[H.length-1].d), cur=H[H.length-1];
+  const periods=[["1 month",1],["6 months",6],["1 year",12],["5 years",60],["10 years",120],["15 years",180],["20 years",240]];
+  const rows=periods.map(([lab,m])=>{ const t=new Date(now); t.setMonth(t.getMonth()-m); const key=t.toISOString().slice(0,10);
+    if(H[0].d>key) return `<tr><td>${lab}</td><td class="n muted" colspan="3">history from ${H[0].d}</td></tr>`;
+    let then=H[0]; for(const h of H){ if(h.d<=key)then=h; else break; }
+    const ch=cur.v-then.v, pct=then.v>0?ch/then.v*100:0, dep=cur.k-then.k;
+    return `<tr><td>${lab}<div class="muted">${then.d}</div></td><td class="n">${eur(then.v)}</td><td class="n ${ch<0?"neg":ch>0?"pos":""}">${ch>=0?"+":""}${eur(ch)}<div class="muted">${pct>=0?"+":""}${pct.toFixed(1)}%</div></td><td class="n muted">${dep?eur(dep):"-"}</td></tr>`; }).join("");
+  el.innerHTML=`<table><tr><th>Compared with</th><th class="n">Worth then</th><th class="n">Change to ${eur(cur.v)}</th><th class="n">Deposited since</th></tr>${rows}</table>`;
+  // value vs contributions chart
+  const W=680,Hh=170,pad=8; const vmax=Math.max(...H.map(h=>Math.max(h.v,h.k)))||1, vmin=Math.min(...H.map(h=>Math.min(h.v,h.k)));
+  const X=i=>pad+(W-2*pad)*i/Math.max(1,H.length-1), Y=v=>Hh-pad-(Hh-2*pad)*(v-vmin)/((vmax-vmin)||1);
+  const path=k=>H.map((h,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(h[k]).toFixed(1)).join(" ");
+  const upAll=cur.v>=cur.k;
+  ch.innerHTML=`<svg viewBox="0 0 ${W} ${Hh}" width="100%" style="display:block;margin-top:6px"><path d="${path("v")} L${X(H.length-1).toFixed(1)} ${Hh-pad} L${pad} ${Hh-pad} Z" fill="${upAll?"var(--pale-green)":"var(--pale-red)"}" opacity=".5"/><path d="${path("k")}" fill="none" stroke="var(--ink2)" stroke-width="1.5" stroke-dasharray="5 4"/><path d="${path("v")}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linejoin="round"/></svg><div style="display:flex;justify-content:space-between" class="muted"><span>${H[0].d}</span><span>Blue: portfolio value · Dashed: money put in</span><span>${cur.d}</span></div>`;
 }
 function preview(){
   const t=readForm(); if(!t){document.getElementById("t-preview").textContent="";return;}
