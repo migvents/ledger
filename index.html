@@ -150,7 +150,10 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outl
     <p class="muted" id="targetsum"></p>
     <div class="row"><div><label>New asset ticker</label><input id="a-ticker" placeholder="e.g. VWCE"></div><div><label>Name</label><input id="a-name"></div></div>
     <div class="row one"><div><label>ISIN (helps price lookup)</label><input id="a-isin" placeholder="e.g. IE00BK5BR733"></div></div>
-    <div class="row"><div><label>Target %</label><input type="text" id="a-target" inputmode="decimal"></div><div><label>&nbsp;</label><button class="btn quiet" id="a-add" style="width:100%">Add asset</button></div></div>
+    <div class="row"><div><label>US twin <button class="info" data-info="twin">i</button></label><input id="a-proxy" placeholder="filled in for known funds"></div><div><label>Broker</label><input id="a-broker" placeholder="Revolut"></div></div>
+    <div class="row"><div><label>Buy months</label><input id="a-buym" placeholder="blank = monthly"></div><div><label>Target %</label><input type="text" id="a-target" inputmode="decimal"></div></div>
+    <p class="muted" id="a-status"></p>
+    <div class="actions"><button class="btn quiet" id="a-add">Add asset</button></div>
     </div>
     <h2>Rules</h2>
     <div class="card">
@@ -695,7 +698,18 @@ document.addEventListener("click",async e=>{
   if(b.id==="pr-save"){document.querySelectorAll("[data-price]").forEach(i=>{const a=S.assets[+i.dataset.price];const v=N(i.value)||0;if(v&&v!==a.price){a.price=v;a.anchor=null;}});S.settings.priceDate=document.getElementById("pr-date").value;await save();fetchPrices(true);}
   if(b.id==="s-save"){const hadKey=!!S.settings.apiKey;document.querySelectorAll("[data-name]").forEach(i=>S.assets[+i.dataset.name].name=i.value);document.querySelectorAll("[data-isin]").forEach(i=>S.assets[+i.dataset.isin].isin=i.value.trim().toUpperCase());document.querySelectorAll("[data-yahoo]").forEach(i=>S.assets[+i.dataset.yahoo].proxy=i.value.trim().toUpperCase());document.querySelectorAll("[data-broker]").forEach(i=>S.assets[+i.dataset.broker].broker=i.value.trim());document.querySelectorAll("[data-buym]").forEach(i=>S.assets[+i.dataset.buym].buyMonths=i.value.trim());document.querySelectorAll("[data-target]").forEach(i=>S.assets[+i.dataset.target].target=N(i.value)||0);
     S.settings.band=N(document.getElementById("s-band").value)||5;S.settings.tob=N(document.getElementById("s-tob").value)||0;S.settings.buffer=N(document.getElementById("s-buffer").value)||0;S.settings.rebalanceMonth=N(document.getElementById("s-month").value)||1;S.settings.dipTranche=N(document.getElementById("s-dip").value)||0;S.settings.dipTiers=document.getElementById("s-tiers").value.split(",").map(x=>N(x)).filter(x=>x>0).sort((a,b)=>a-b);if(!S.settings.dipTiers.length)S.settings.dipTiers=[15,25,35];S.settings.monthly=N(document.getElementById("s-monthly").value)||0;S.settings.autoPrices=document.getElementById("s-auto").value==="1";S.settings.apiKey=document.getElementById("s-key").value.trim();S.settings.pollSeconds=Math.max(30,N(document.getElementById("s-poll").value)||60);S.settings.maxOrders=Math.max(1,N(document.getElementById("s-orders").value)||2);S.settings.lastRebalance=document.getElementById("s-last").value||"";await save();}
-  if(b.id==="a-add"){const tk=document.getElementById("a-ticker").value.trim().toUpperCase(); if(!tk)return; S.assets.push({ticker:tk,name:document.getElementById("a-name").value,isin:document.getElementById("a-isin").value.trim().toUpperCase(),target:N(document.getElementById("a-target").value)||0,price:0}); ["a-ticker","a-name","a-isin","a-target"].forEach(id=>document.getElementById(id).value=""); await save();}
+  if(b.id==="a-add"){const st=document.getElementById("a-status");
+    const tk=document.getElementById("a-ticker").value.trim().toUpperCase(); if(!tk){st.textContent="Enter a ticker first.";return;}
+    if(S.assets.some(a=>a.ticker===tk)){st.textContent=tk+" is already in the list.";return;}
+    const isin=document.getElementById("a-isin").value.trim().toUpperCase();
+    const proxy=(document.getElementById("a-proxy").value.trim().toUpperCase())||PROXY[tk]||PROXY[isin]||"";
+    S.assets.push({ticker:tk,name:document.getElementById("a-name").value||tk,isin,proxy,
+      broker:document.getElementById("a-broker").value.trim()||"Revolut",
+      buyMonths:document.getElementById("a-buym").value.trim(),
+      target:N(document.getElementById("a-target").value)||0,price:0});
+    ["a-ticker","a-name","a-isin","a-proxy","a-broker","a-buym","a-target"].forEach(id=>document.getElementById(id).value="");
+    await save();
+    st.textContent=`Added ${tk}${proxy?" (twin "+proxy+")":", no US twin: charts will stay empty until you set one"}. Enter its price in Prices, then Update history in Funds.`;}
   if(b.id==="sync-save"){S.settings.ghToken=document.getElementById("s-gh").value.trim();S.settings.syncPass=document.getElementById("s-pass").value;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} syncStatus("Connecting…"); const empty=!S.tx||!S.tx.length; const pulled=await pullCloud(empty); if(!pulled) await pushCloud(true);}
   if(b.id==="sync-pull"){syncStatus("Pulling…"); await pullCloud(true);}
   if(b.id==="d-export"){const t=JSON.stringify(exportable());const el=document.getElementById("d-text");el.value=t;try{await navigator.clipboard.writeText(t);document.getElementById("d-status").textContent="Backup copied to the clipboard and shown above.";}catch(x){document.getElementById("d-status").textContent="Backup shown above; select and copy it.";}}
