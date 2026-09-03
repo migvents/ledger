@@ -236,6 +236,19 @@ const INFO = {
  schedule:{t:"Buy months",p:["For a fund bought a few times a year, record the monthly amount you set aside with the one-tap button on the Overview. That money counts toward the fund's target, so it is not shown as underweight while it accumulates in your savings account. When you buy, log the purchase as usual and the set-aside balance is used up.","Leave blank for funds bought monthly through the Revolut plan. For a fund bought at another broker with a fixed fee per order, enter the months you buy in (for example 3,9 for March and September). The app then removes that fund from the monthly Revolut split, tells you how much to set aside each month, and in those months shows how much has accumulated since the last purchase."]},
  sync:{t:"Sync between devices",p:["Your data is saved in a private file (a 'gist') on your own GitHub account, encrypted with a passphrase before it leaves the device, so GitHub only ever stores scrambled text. Each device that has the token and the same passphrase reads and writes the same file; the newest copy wins.","To create the token: GitHub → your profile picture → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token. Name it 'ledger sync', set expiration to one year, leave repository access on 'Public repositories (read-only)', and under Account permissions set Gists to 'Read and write'. Copy the token once; GitHub will not show it again.","The token and passphrase stay on each device and are never uploaded. If you lose the passphrase the cloud copy cannot be read; your device copy still works and will re-upload."]},
  perf:{t:"Performance",p:["Once price history is downloaded (Funds tab), the chart and the table are rebuilt from your actual transactions valued at each day's prices, so they go back to your first purchase. Without it, they use the daily snapshots the app takes from installation onwards.","The app records the portfolio's total value once a day. Each row shows what it was worth on the nearest recorded day for that period, and the change in euros and percent to today's value. The last column shows how much of that change is money you deposited in the meantime, so you can tell growth from contributions at a glance. Periods longer than the recorded history show the date recording began."]},
+ irr:{t:"Return per year (IRR)",p:["<strong>What it is.</strong> The annual rate your money has actually earned, taking into account when each euro arrived. A euro invested last month has had no time to grow, and this figure accounts for that; the simple gain percentage does not.","<strong>What to conclude.</strong> Compare it with what a diversified portfolio can be expected to deliver over long periods, roughly 5 to 8% a year before inflation.","<strong>Rough bands.</strong> Below 0%: normal in the first years or after a fall, no action. 0 to 4%: below expectation, usually the market rather than you. 4 to 9%: in line with a portfolio like yours. Above 12%: an unusually good run, not a rate to plan on.","Ignore it entirely in the first year: with few months of data it swings wildly."]},
+ twr:{t:"Market return (TWR)",p:["<strong>What it is.</strong> How the funds themselves performed over the recorded period, stripped of the effect of your deposits. IRR answers 'how did my money do'; this answers 'how did the market do'.","<strong>What to conclude.</strong> If IRR is far below TWR, your recent contributions simply arrived late, which is not a mistake. If TWR is negative while you keep buying, you are buying cheaper, which is the plan working.","<strong>Bands.</strong> Over a full year: below −20% is a serious market fall, −20 to 0% an ordinary bad patch, 0 to 10% normal, above 20% an exceptional year."]},
+ contrib:{t:"Invested per month",p:["<strong>What it is.</strong> Your average monthly contribution over the past year, next to the plan you set.","<strong>What to conclude.</strong> This is the single most powerful lever you control. Over ten years, raising it by €100 a month adds more than most changes in allocation ever will.","<strong>Bands.</strong> A common target is 10 to 20% of net income. If you are consistently below your plan, lower the plan to something you will actually keep rather than missing it every month."]},
+ cost:{t:"Fund cost",p:["<strong>What it is.</strong> The weighted annual charge of the funds you hold, and what it costs in euros at today's balance.","<strong>What to conclude.</strong> Costs are certain, returns are not; this is the one number you can improve with no risk.","<strong>Bands.</strong> Under 0.20%: excellent, typical of index ETFs. 0.20 to 0.50%: acceptable. 0.50 to 1%: expensive, question it. Above 1%: typical of bank funds and worth leaving. Yours should stay near 0.13%."]},
+ fees:{t:"Fees and TOB paid",p:["<strong>What it is.</strong> Every broker fee and transaction tax you have paid, and its share of the money you put in.","<strong>What to conclude.</strong> Small purchases with a fixed fee are what push this up. If a single fee is more than about 1% of the order, wait and buy a larger amount, or use a free savings plan.","<strong>Bands.</strong> Under 0.5% of contributions: fine. 0.5 to 1.5%: watch it. Above 2%: you are trading too often or in amounts that are too small."]},
+ top10:{t:"Top-10 US megacaps",p:["<strong>What it is.</strong> The share of your whole portfolio sitting in the ten largest US companies, added across every fund. They appear in the S&P 500 fund and, in small amounts, in the equal-weight one.","<strong>What to conclude.</strong> This is the concentration risk you set out to manage: if the AI-led megacaps fall hard, this is the fraction of your money exposed to it directly.","<strong>Bands.</strong> Under 15%: conservative. 15 to 25%: balanced, where your 40/20/15/15/10 mix sits. 25 to 35%: this is what a pure S&P 500 portfolio looks like today. Above 35%: heavily concentrated in a handful of companies."]},
+ usexp:{t:"US exposure and equity share",p:["<strong>What it is.</strong> How much of the portfolio is in US-listed companies, and how much of it is equities rather than gold or bonds.","<strong>What to conclude.</strong> The US is about 60 to 65% of world markets, so a similar share is 'neutral'; more is a bet on the US continuing to lead. The equity share sets how hard a crash will hit you.","<strong>Bands.</strong> US 40 to 55%: globally balanced. 55 to 70%: a moderate US tilt, where your plan sits. Above 75%: concentrated in one country. Equity share above 90% means almost nothing cushions a crash."]},
+ vol:{t:"Volatility",p:["<strong>What it is.</strong> How much the portfolio's value swings, expressed as a yearly figure. Roughly, in two years out of three the return should land within this much of its average.","<strong>What to conclude.</strong> It tells you whether the ride matches what you signed up for. Higher volatility is the price of higher expected return, not a fault.","<strong>Bands.</strong> Under 8%: very calm, typical of a bond-heavy mix. 10 to 15%: a diversified equity portfolio like yours. 15 to 20%: pure equities in a nervous market. Above 25%: single stocks or something concentrated.","Needs a few months of daily records before it means anything."]},
+ dd:{t:"Worst drop (drawdown)",p:["<strong>What it is.</strong> The largest fall from a peak to a subsequent low that your portfolio has actually experienced, in percent. If it reached €10,000, dropped to €7,000 and recovered, the worst drop is −30%.","<strong>What to conclude.</strong> This is the honest measure of pain, and the number that predicts whether you will panic. Compare it with what you told yourself you could tolerate.","<strong>Bands for reference.</strong> A portfolio like yours would have fallen about 40% in 2000 to 2002, about 55% in 2008, about 32% in 2020 and about 14% in 2022. Expect −30% or worse at least once a decade. If a −10% figure already worries you, the equity share is too high for you."]},
+ sector:{t:"Industry breakdown",p:["<strong>What it is.</strong> Your money grouped by the industry the underlying companies operate in, added across all funds using each fund's published sector weights. Gold appears as its own line since it is not a company at all.","<strong>What to conclude.</strong> A single industry above roughly a third means your result depends heavily on that sector's fortunes. Technology is the one to watch in a portfolio like yours: it is the largest sector in the S&P 500 and in emerging markets, so it adds up across funds.","<strong>Bands for the biggest sector.</strong> Under 20%: well spread. 20 to 30%: normal for a global portfolio today. 30 to 40%: concentrated, which is what a pure S&P 500 holding looks like. Above 40%: a sector bet rather than a diversified portfolio.","These are approximate published weights, updated when funds rebalance, not live holdings data."]},
+ spread:{t:"Sector spread (effective sectors)",p:["<strong>What it is.</strong> How many industries your portfolio behaves as if it were spread across, allowing for their sizes. Eleven equal sectors would score 11; everything in one sector scores 1.","<strong>What to conclude.</strong> It condenses the whole industry table into one number you can track as the mix drifts.","<strong>Bands.</strong> Below 4: concentrated. 4 to 6: a normal market-cap global portfolio. 6 to 8: well spread, which equal-weight and ex-US funds push you toward. Above 8: very evenly spread, rare without deliberate effort."]},
+ goal:{t:"Time to reach",p:["<strong>What it is.</strong> How long today's balance plus your monthly contribution would take to reach €50,000 and €100,000, at two assumed rates.","<strong>What to conclude.</strong> It shows how much more the contribution matters than the return in the early years, and how that reverses later. Try changing the monthly amount in Settings and watch which number moves.","These are arithmetic, not forecasts: real returns arrive unevenly, and a bad decade can push these out by years."]},
+ moneyin:{t:"Money in",p:["Deposits minus withdrawals: the money you have actually committed. Everything above this is gain, everything below is loss. Deposits to Revolut that you have not logged are inferred from purchases; transfers to other brokers should be logged so the cash there is counted."]},
  alloc:{t:"Allocation",p:["The ring shows how your money is actually split between the funds today, in euros and percent, with your target beside each one for comparison. Colours match the fund charts and the holdings list."]},
  kpi:{t:"Key figures",p:["Set aside is money the plan has reserved for funds you buy a few times a year (gold, at your Bolero account) since their last purchase. The app counts it toward the target, so a fund waiting for its next purchase is not flagged as underweight.","Money in is deposits minus withdrawals. Gain is everything above that, so contributions never look like returns. Fund costs are the weighted average annual charge of what you hold, with the euro amount that represents at today's size. Worst drop recorded is the largest fall from a peak since the app started keeping daily values."]},
  funds:{t:"Funds",p:["Price history comes from Twelve Data's daily closes for each fund's US twin, converted with the EUR/USD rate of each day and scaled so today matches the EUR price you have. It goes back as far as the data allows (up to 20 years), so the charts are real history, not just days recorded since you installed the app. Tap Update history to refresh; it uses six requests of your daily allowance.","One card per fund: the current price, a chart of its price since the app started recording, the price change over each period, and your position: units held, value, share of the portfolio, what you paid, and the gain or loss on it. Price changes here are pure price moves; the gain on the right is your money's result including fees and TOB."]},
@@ -244,7 +257,7 @@ const INFO = {
 const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
 
 // ---------- state ----------
-const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 29 · 2026-09-03";
+const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 32 · 2026-09-03";
 let mem=null;
 const defaults=()=>({
  settings:{band:5,tob:0.12,buffer:0,priceDate:new Date().toISOString().slice(0,10),rebalanceMonth:1,lastRebalance:"",monthly:200,maxOrders:5,autoPrices:true,dipTranche:0,dipTiers:[15,25,35],dipFired:[]},
@@ -655,29 +668,99 @@ function renderAlloc(c){
   const legend=c.holdings.map((h,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;font-size:14px"><span><span class="dot" style="background:${FUNDCOL[i%FUNDCOL.length]}"></span>${h.a.ticker}</span><span class="n">${eur(h.value)} <span class="muted">${h.weight.toFixed(1)}%</span> <span class="muted">/ ${h.a.target}%</span></span></div>`).join("");
   el.innerHTML=`<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><svg viewBox="0 0 120 120" width="120" height="120" style="flex:0 0 120px">${segs.join("")}<text x="60" y="57" text-anchor="middle" font-size="13" font-family="Fraunces,Georgia,serif" fill="var(--ink)">${eur0(tot).replace("+","")}</text><text x="60" y="72" text-anchor="middle" font-size="8" fill="var(--ink2)">invested</text></svg><div style="flex:1;min-width:190px">${legend}</div></div>`;
 }
+const TOP10={VUAA:36,VOO:36,XDEW:2.4,EXUS:0,VFEA:0,EGLN:0,PPFB:0,IGLN:0};  // % of each fund sitting in the ten largest US companies
+const USSHARE={VUAA:100,XDEW:100,EXUS:0,VFEA:0,EGLN:0,PPFB:0,IGLN:0};
+// approximate sector weights (%) per fund; gold/bonds handled separately
+const SECTORS={
+ VUAA:{Technology:34,Financials:14,"Health care":10,"Consumer discretionary":10,Communication:10,Industrials:8,"Consumer staples":5,Energy:3,Utilities:2,"Real estate":2,Materials:2},
+ XDEW:{Industrials:16,Financials:15,"Health care":12,Technology:12,"Consumer discretionary":11,"Consumer staples":7,Utilities:6,"Real estate":6,Materials:5,Energy:5,Communication:5},
+ EXUS:{Financials:23,Industrials:17,"Health care":10,"Consumer discretionary":10,Technology:9,"Consumer staples":7,Materials:6,Communication:5,Energy:5,Utilities:4,"Real estate":3},
+ VFEA:{Technology:26,Financials:22,"Consumer discretionary":13,Communication:10,Industrials:7,Materials:6,"Consumer staples":5,Energy:5,Utilities:3,"Health care":3,"Real estate":2},
+ EGLN:{Gold:100},PPFB:{Gold:100},IGLN:{Gold:100},SGLN:{Gold:100}};
+function sectorMix(c){
+  const tot={}; let covered=0;
+  for(const h of c.holdings){ const m=SECTORS[h.a.ticker]||(/gold/i.test(h.a.name||"")?{Gold:100}:null); if(!m||!h.value)continue; covered+=h.value;
+    for(const k in m) tot[k]=(tot[k]||0)+h.value*m[k]/100; }
+  const arr=Object.entries(tot).map(([k,v])=>({k,v,pct:covered?v/covered*100:0})).sort((a,b)=>b.pct-a.pct);
+  const hhi=arr.reduce((x,a)=>x+Math.pow(a.pct/100,2),0);
+  return {arr,covered,hhi,effective:hhi?1/hhi:0};
+}
+function xirr(flows){ // flows: [{d:Date, a:amount}] outflows negative
+  if(flows.length<2)return null;
+  const t0=flows[0].d.getTime(); const yrs=f=>(f.d.getTime()-t0)/(365.25*864e5);
+  const npv=r=>flows.reduce((s,f)=>s+f.a/Math.pow(1+r,yrs(f)),0);
+  let lo=-0.95, hi=10; if(npv(lo)*npv(hi)>0)return null;
+  for(let i=0;i<200;i++){ const mid=(lo+hi)/2; (npv(lo)*npv(mid)<=0)?hi=mid:lo=mid; }
+  return (lo+hi)/2;
+}
+function metrics(c){
+  const m={};
+  const net=c.deposits-c.withdrawals; m.gain=c.total-net; m.gainPct=net>0?m.gain/net*100:0;
+  // money-weighted annual return
+  const flows=S.tx.filter(t=>t.type==="Deposit"||t.type==="Withdrawal").sort((a,b)=>a.date.localeCompare(b.date))
+    .map(t=>({d:new Date(t.date),a:t.type==="Deposit"?-t.amount:t.amount}));
+  if(c.implicit>0){ const firstBuy=S.tx.filter(t=>t.type==="Buy").map(t=>t.date).sort()[0]; if(firstBuy)flows.push({d:new Date(firstBuy),a:-c.implicit}); }
+  flows.sort((a,b)=>a.d-b.d); flows.push({d:new Date(),a:c.total});
+  const r=xirr(flows); m.irr=r!=null?r*100:null;
+  // contributions over the last 12 months
+  const cut=new Date(); cut.setMonth(cut.getMonth()-12); const ck=cut.toISOString().slice(0,10);
+  const dep12=S.tx.filter(t=>t.type==="Deposit"&&t.date>=ck).reduce((x,t)=>x+t.amount,0)+(c.implicit||0);
+  const firstD=S.tx.map(t=>t.date).sort()[0]||new Date().toISOString().slice(0,10);
+  const monthsRun=Math.max(1,Math.min(12,Math.round((Date.now()-new Date(firstD))/(365.25/12*864e5))||1));
+  m.perMonth=dep12/monthsRun; m.plan=S.settings.monthly||0;
+  // cost drag
+  m.ter=c.invested?c.holdings.reduce((x,h)=>x+h.value*(TER[h.a.ticker]||0.15),0)/c.invested:0;
+  m.terEur=c.invested*m.ter/100;
+  // concentration
+  m.top10=c.invested?c.holdings.reduce((x,h)=>x+h.value*(TOP10[h.a.ticker]??0),0)/c.invested:0;
+  m.us=c.invested?c.holdings.reduce((x,h)=>x+h.value*(USSHARE[h.a.ticker]??0),0)/c.invested:0;
+  const eq=c.holdings.filter(h=>!/gold|silver|bond/i.test(h.a.name||""));
+  m.equity=c.invested?eq.reduce((x,h)=>x+h.value,0)/c.invested*100:0;
+  // volatility and drawdown from a time-weighted index built on the reconstructed series
+  const H=portfolioSeries()||S.history||[]; m.days=H.length;
+  if(H.length>5){ let idx=1, peak=1, dd=0; const rets=[];
+    for(let i=1;i<H.length;i++){ const flow=(H[i].k-H[i-1].k); const prev=H[i-1].v; if(prev<=0)continue;
+      const ret=(H[i].v-flow)/prev-1; if(!isFinite(ret)||Math.abs(ret)>0.5)continue; rets.push(ret); idx*=(1+ret); peak=Math.max(peak,idx); dd=Math.min(dd,idx/peak-1); }
+    m.nret=rets.length;
+    if(rets.length>=40){ const mean=rets.reduce((a,b)=>a+b,0)/rets.length;
+      m.vol=Math.sqrt(rets.reduce((a,b)=>a+(b-mean)**2,0)/(rets.length-1))*Math.sqrt(252)*100; }
+    m.maxdd=dd*100; m.twr=(idx-1)*100;
+  }
+  const sm=sectorMix(c); m.sectors=sm.arr; m.effectiveSectors=sm.effective; m.topSector=sm.arr[0]||null;
+  // time to goals
+  m.goals=[50000,100000].map(g=>{ const res={g}; [5,7].forEach(rate=>{ const rm=rate/100/12, pv=c.total, pmt=m.plan;
+    if(pv>=g){res["y"+rate]=0;return;} if(!pmt&&!rm){res["y"+rate]=null;return;}
+    const n=Math.log((g*rm+pmt)/(pv*rm+pmt))/Math.log(1+rm); res["y"+rate]=isFinite(n)?n/12:null; }); return res; });
+  return m;
+}
 function renderKpis(c){
-  const el=document.getElementById("kpis"); if(!el)return; const H=S.history||[];
-  const net=c.deposits-c.withdrawals, gain=c.total-net, gainPct=net>0?gain/net*100:0;
-  const ter=c.invested?c.holdings.reduce((x,h)=>x+h.value*(TER[h.a.ticker]||0.15),0)/c.invested:0;
-  const feePct=net>0?c.fees/net*100:0;
-  const worst=c.holdings.slice().sort((a,b)=>a.drift-b.drift)[0], big=c.holdings.slice().sort((a,b)=>b.weight-a.weight)[0];
-  const first=S.tx.map(t=>t.date).sort()[0];
-  const months=first?Math.max(1,(new Date()-new Date(first))/(365.25/12*864e5)):1;
-  const perMonth=net/months;
-  let dd="-"; if(H.length>1){ let peak=0,mx=0; for(const h of H){ peak=Math.max(peak,h.v); mx=Math.min(mx,(h.v-peak)/(peak||1)); } dd=(mx*100).toFixed(1)+"%"; }
+  const el=document.getElementById("kpis"); if(!el)return; const m=metrics(c);
+  const num=(v,f)=>v==null||isNaN(v)?"–":f(v);
+  const yrs=v=>v==null?"–":v<=0?"reached":v<1?Math.round(v*12)+" months":v.toFixed(1)+" years";
   const items=[
-   ["Total value",eur(c.total),""],
-   ["Money in",eur(net),first?"since "+first:""],
-   ["Gain",`<span class="${gain<0?"neg":gain>0?"pos":""}">${gain>=0?"+":""}${eur(gain)}</span>`,`${gainPct>=0?"+":""}${gainPct.toFixed(1)}% on money in`],
-   ["Average per month",eur(perMonth),months.toFixed(0)+" months"],
-   ["Fund costs",ter.toFixed(2)+"% a year",eur(c.invested*ter/100)+" a year at this size"],
-   ["Fees and TOB paid",eur(c.fees),feePct.toFixed(2)+"% of money in"],
-   ["Largest slice",big?`${big.a.ticker} ${big.weight.toFixed(0)}%`:"-","target "+(big?big.a.target:0)+"%"],
-   ["Furthest below target",worst?`${worst.a.ticker} ${worst.drift.toFixed(1)} pts`:"-",worst&&worst.action>0?"needs "+eur0(worst.action):""],
-   ["Set aside, not yet bought",eur(c.reserved),c.reserved?"counts toward target":"nothing pending"],
-   ["Worst drop recorded",dd,H.length>1?"since "+H[0].d:"from today"],
+   ["Total value",eur(c.total),"",""],
+   ["Money in",eur(c.deposits-c.withdrawals),m.plan?`plan ${eur(m.plan)}/month`:"","moneyin"],
+   ["Gain",`<span class="${m.gain<0?"neg":"pos"}">${m.gain>=0?"+":""}${eur(m.gain)}</span>`,`${m.gainPct>=0?"+":""}${m.gainPct.toFixed(1)}% on money in`,"gain"],
+   ["Return per year (IRR)",num(m.irr,v=>`<span class="${v<0?"neg":"pos"}">${v>=0?"+":""}${v.toFixed(1)}%</span>`),"money-weighted","irr"],
+   ["Market return (TWR)",num(m.twr,v=>`${v>=0?"+":""}${v.toFixed(1)}%`),m.days?`over ${m.days} days recorded`:"needs history","twr"],
+   ["Invested per month",eur(m.perMonth),m.plan?(m.perMonth>=m.plan*0.95?"on plan":"below plan"):"","contrib"],
+   ["Fund cost",m.ter.toFixed(2)+"%",eur(m.terEur)+" a year at this size","cost"],
+   ["Fees and TOB paid",eur(c.fees),(c.deposits>0?(c.fees/c.deposits*100).toFixed(2):"0")+"% of money in","fees"],
+   ["Top-10 US megacaps",m.top10.toFixed(0)+"%","of the portfolio","top10"],
+   ["US exposure",m.us.toFixed(0)+"%",`equities ${m.equity.toFixed(0)}% of portfolio`,"usexp"],
+   ["Volatility",m.vol!=null?m.vol.toFixed(0)+"%":"–",m.vol!=null?"yearly swing":`needs ~2 months (${m.nret||0} days so far)`,"vol"],
+   ["Worst drop",num(m.maxdd,v=>`<span class="neg">${v.toFixed(1)}%</span>`),m.days?"since records began":"needs history","dd"],
+   ["Biggest sector",m.topSector?`${m.topSector.pct.toFixed(0)}%`:"–",m.topSector?m.topSector.k:"","sector"],
+   ["Sector spread",m.effectiveSectors?m.effectiveSectors.toFixed(1):"–","effective sectors","spread"],
   ];
-  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">`+items.map(([k,v,sub])=>`<div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">${k}</div><div style="font-size:17px;font-weight:500">${v}</div>${sub?`<div class="muted" style="font-size:12px">${sub}</div>`:""}</div>`).join("")+`</div>`;
+  const sc=["#2563EB","#7C3AED","#0891B2","#059669","#C8962E","#DB2777","#DC2626","#0F766E","#7C2D12","#475569","#A16207"];
+  const secRows=m.sectors.map((x,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px"><span style="width:130px">${x.k}</span><span style="flex:1;height:10px;background:var(--rule);border-radius:5px;overflow:hidden"><span style="display:block;height:100%;width:${Math.min(100,x.pct)}%;background:${sc[i%sc.length]}"></span></span><span class="n" style="width:44px;text-align:right">${x.pct.toFixed(0)}%</span></div>`).join("");
+  const goalRows=m.goals.map(g=>`<tr><td>€${(g.g/1000)}k</td><td class="n">${yrs(g.y5)}</td><td class="n">${yrs(g.y7)}</td></tr>`).join("");
+  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">`+
+    items.map(([k,v,sub,info])=>`<div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">${k}${info?` <button class="info" data-info="${info}">?</button>`:""}</div><div style="font-size:17px;font-weight:500">${v}</div>${sub?`<div class="muted" style="font-size:12px">${sub}</div>`:""}</div>`).join("")+
+    `</div><h3 style="font-family:Fraunces,serif;font-weight:600;font-size:15px;margin:16px 0 4px">Time to reach <button class="info" data-info="goal">?</button></h3>
+     <table><tr><th>Target</th><th class="n">at 5%/yr</th><th class="n">at 7%/yr</th></tr>${goalRows}</table>
+     <p class="muted" style="font-size:12px">Assumes ${eur(m.plan)} a month continues.</p>`;
 }
 function renderFunds(c){
   const el=document.getElementById("fundlist"); if(!el)return; const H=S.history||[];
@@ -876,7 +959,11 @@ function lineHover(e){
   tipEl.style.display="block"; tipEl.style.left=Math.min(e.clientX+12,window.innerWidth-270)+"px"; tipEl.style.top=(e.clientY-40)+"px";
   return true;
 }
-document.addEventListener("pointerover",e=>{ const m=e.target.closest&&e.target.closest("circle.mark"); if(m)showTip(m,e.clientX,e.clientY); });
+document.addEventListener("pointerover",e=>{ const m=e.target.closest&&e.target.closest("circle.mark"); if(m){showTip(m,e.clientX,e.clientY);return;}
+  const ib=e.target.closest&&e.target.closest("button.info"); if(ib&&INFO[ib.dataset.info]){ const k=INFO[ib.dataset.info];
+    tipEl.innerHTML=`<strong>${k.t}</strong><br>${k.p[0].replace(/<[^>]+>/g,"")}<br><em>Tap for the full explanation.</em>`;
+    tipEl.style.display="block"; tipEl.style.left=Math.min(e.clientX+12,window.innerWidth-290)+"px"; tipEl.style.top=(e.clientY+14)+"px"; } });
+document.addEventListener("pointerout",e=>{ if(e.target.closest&&e.target.closest("button.info")) tipEl.style.display="none"; });
 document.addEventListener("pointermove",e=>{ const m=e.target.closest&&e.target.closest("circle.mark"); if(m){showTip(m,e.clientX,e.clientY);return;} if(!lineHover(e)) tipEl.style.display="none"; });
 document.addEventListener("pointerdown",e=>{ lineHover(e); });
 document.addEventListener("pointerout",e=>{ const svg=e.target.closest&&e.target.closest("svg.hoverable"); if(svg&&!svg.contains(e.relatedTarget)){ tipEl.style.display="none"; const g=svg.querySelector("g.cross"); if(g)g.style.display="none"; } });
