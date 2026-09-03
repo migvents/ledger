@@ -265,7 +265,7 @@ const INFO = {
 const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
 
 // ---------- state ----------
-const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 35 · 2026-09-03";
+const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 36 · 2026-09-03";
 let mem=null;
 const defaults=()=>({
  settings:{band:5,tob:0.12,buffer:0,priceDate:new Date().toISOString().slice(0,10),rebalanceMonth:1,lastRebalance:"",monthly:200,maxOrders:5,autoPrices:true,dipTranche:0,dipTiers:[15,25,35],dipFired:[]},
@@ -787,8 +787,7 @@ function renderFunds(c){
     const marks=[]; if(ser.length>=2){ for(const t of S.tx){ if(t.ticker!==h.a.ticker||(t.type!=="Buy"&&t.type!=="Sell")||t.date<ser[0].d)continue;
         let idx=-1; for(let k=0;k<ser.length;k++){ if(ser[k].d<=t.date)idx=k; else break; } if(idx<0)continue;
         marks.push({i:idx,sell:t.type==="Sell",label:`${t.date}: ${t.type.toLowerCase()} ${Number(t.units).toLocaleString("en-GB",{maximumFractionDigits:4})} units at ${eur(t.price)} = ${eur(t.units*t.price)}${t.fee?", fee "+eur(t.fee):""}`}); } }
-    const tradeList=marks.length?`<div class="muted" style="margin-top:4px;font-size:12px">${marks.slice(-6).map(m=>`<div><span class="dot" style="background:${m.sell?"var(--red)":"var(--green)"}"></span>${m.label}</div>`).join("")}${marks.length>6?`<div>… and ${marks.length-6} earlier</div>`:""}</div>`:"";
-    const chart=ser.length>=2?spark(ser.map(x=>x.x),FUNDCOL[c.holdings.indexOf(h)%FUNDCOL.length],680,90,marks,ser.map(x=>x.d))+tradeList:`<p class="muted">No price history (${why}).</p>`;
+    const chart=ser.length>=2?spark(ser.map(x=>x.x),FUNDCOL[c.holdings.indexOf(h)%FUNDCOL.length],680,90,marks,ser.map(x=>x.d))+(marks.length?`<p class="muted" style="margin:2px 0 0;font-size:12px"><span class="dot" style="background:var(--green)"></span>buy <span class="dot" style="background:var(--red);margin-left:10px"></span>sell · tap a dot for details</p>`:""):`<p class="muted">No price history (${why}).</p>`;
     const full=raw.map(x=>({d:x.d,x:x.p}));
     const rows=full.length>=2?changeRows(full,h.a.price,periods):"";
     const rangeChange=ser.length>=2?(()=>{const a=ser[0].x,b=ser[ser.length-1].x,p=(b/a-1)*100;return `<span class="${p<0?"neg":"pos"}">${p>=0?"+":""}${p.toFixed(1)}%</span> <span class="muted">over ${R} (from ${ser[0].d})</span>`;})():"";
