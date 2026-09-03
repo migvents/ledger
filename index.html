@@ -168,14 +168,16 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outl
     <div class="row one"><div><label>GitHub token (fine-grained, Gists read/write only)</label><input id="s-gh" placeholder="github_pat_…" autocomplete="off"></div></div>
     <div class="row one"><div><label>Sync passphrase (encrypts your data; same on every device)</label><input id="s-pass" type="password" autocomplete="off"></div></div>
     <p class="muted" id="sync-status"></p>
-    <p class="muted">Both devices need the same token and passphrase. If a device shows different data, press Pull from cloud on it.</p>
+    <p class="muted">Set this up once per device. After that every change uploads by itself, and the app checks for changes from your other device every minute while it is open. The buttons are only for setup or repairs.</p>
     <div class="actions"><button class="btn" id="sync-save">Save and sync now</button><button class="btn quiet" id="sync-pull">Pull from cloud</button></div>
     </div>
     <p class="muted" id="verline"></p>
     <h2>Your data</h2>
     <div class="card">
     <p class="muted">Data is stored in this browser and, if sync is set up, in your encrypted gist. Export a backup now and then.</p>
-    <div class="actions"><button class="btn quiet" id="d-export">Copy backup to clipboard</button><button class="btn quiet" id="d-import">Paste backup</button><button class="btn danger" id="d-reset">Delete everything</button></div>
+    <div class="row one"><div><label>Paste a backup here, then tap Load backup</label><textarea id="d-text" rows="4" style="width:100%;padding:11px 12px;border:1px solid var(--rule);border-radius:10px;font:13px/1.4 monospace" placeholder='{"settings":…'></textarea></div></div>
+    <p class="muted" id="d-status"></p>
+    <div class="actions"><button class="btn" id="d-load">Load backup</button><button class="btn quiet" id="d-export">Copy backup</button><button class="btn danger" id="d-reset">Delete everything</button></div>
     </div>
   </section>
 
@@ -232,7 +234,7 @@ const INFO = {
 const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
 
 // ---------- state ----------
-const KEY="ledger_v1"; const VERSION="build 11 · 2026-09-03";
+const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 11 · 2026-09-03";
 let mem=null;
 const defaults=()=>({
  settings:{band:5,tob:0.12,buffer:0,priceDate:new Date().toISOString().slice(0,10),rebalanceMonth:1,lastRebalance:"",monthly:200,maxOrders:5,autoPrices:true,dipTranche:0,dipTiers:[15,25,35],dipFired:[]},
@@ -248,17 +250,22 @@ const hasStore=()=>{try{return !!window.localStorage;}catch(e){return false;}};
 async function load(){
   try{ const v=hasStore()?localStorage.getItem(KEY):mem; if(v) S=JSON.parse(v); }
   catch(e){}
+  applyDevice();
+  applyCreds();
   if(fillProxies()){ try{ if(hasStore())localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
   render(); setStatus(hasStore()?"Saved on this device":"No storage available");
   await pullCloud(!S.tx||!S.tx.length);
   startPolling();
   if(S.settings.apiKey&&!loadHist()&&S.assets.some(a=>a.price>0)) fetchHistory();
 }
-let pollTimer=null;
+let pollTimer=null, syncTimer=null;
 function startPolling(){
   if(pollTimer)clearInterval(pollTimer);
   const go=()=>{ if(document.visibilityState==="visible"&&S.settings.autoPrices!==false&&S.settings.apiKey) fetchPrices(true); };
   go(); pollTimer=setInterval(go,Math.max(30,S.settings.pollSeconds||90)*1000);
+  if(syncTimer)clearInterval(syncTimer);
+  const sg=()=>{ if(document.visibilityState==="visible") backgroundSync(); };
+  sg(); syncTimer=setInterval(sg,60*1000);
 }
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") startPolling(); });
 async function save(){
@@ -290,9 +297,23 @@ async function pushCloud(force){
     let r; if(S.settings.gistId){ r=await gh("https://api.github.com/gists/"+S.settings.gistId,{method:"PATCH",body}); if(r.status===404){S.settings.gistId="";} }
     if(!S.settings.gistId){ r=await gh("https://api.github.com/gists",{method:"POST",body}); const j=await r.json(); if(j.id){S.settings.gistId=j.id; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}} }
     if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.message||("HTTP "+r.status)); }
+    try{ const j2=await (await gh("https://api.github.com/gists/"+S.settings.gistId)).json(); if(j2.updated_at)S.settings.cloudSeen=j2.updated_at; }catch(e){}
     syncStatus("Synced to cloud "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})); setStatus("Saved · synced");
   }catch(e){ syncStatus("Sync failed: "+e.message); }
   finally{ syncing=false; }
+}
+async function cloudChanged(){
+  if(!S.settings.gistId||!S.settings.ghToken)return false;
+  const r=await gh("https://api.github.com/gists/"+S.settings.gistId);
+  if(!r.ok)return false; const j=await r.json();
+  return !!(j.updated_at && (!S.settings.cloudSeen || j.updated_at>S.settings.cloudSeen));
+}
+async function backgroundSync(){
+  if(!S.settings.ghToken||!S.settings.syncPass||syncing)return;
+  try{ if(await cloudChanged()){ const before=JSON.stringify(exportable());
+      const ok=await pullCloud(false);
+      if(ok&&JSON.stringify(exportable())!==before) setStatus("Updated from your other device"); } }
+  catch(e){}
 }
 async function findGist(){ const r=await gh("https://api.github.com/gists?per_page=100"); if(!r.ok)throw new Error("token rejected ("+r.status+")"); const list=await r.json(); const g=list.find(x=>x.files&&x.files[GIST_FILE]); return g?g.id:""; }
 async function pullCloud(force){
@@ -301,16 +322,21 @@ async function pullCloud(force){
     const r=await gh("https://api.github.com/gists/"+S.settings.gistId); if(!r.ok)throw new Error("gist not reachable ("+r.status+")");
     const j=await r.json(); const f=j.files[GIST_FILE]; let content=f.content; if(f.truncated){content=await (await fetch(f.raw_url)).text();}
     const text=await decrypt(content,S.settings.syncPass); const cloud=JSON.parse(text);
-    if(!force&&S.settings.updatedAt&&cloud.updatedAt&&cloud.updatedAt<=S.settings.updatedAt){ syncStatus("Local data is newer; nothing pulled."); return false; }
-    const keep={ghToken:S.settings.ghToken,syncPass:S.settings.syncPass,gistId:S.settings.gistId};
-    S={...cloud,settings:{...cloud.settings,...keep}}; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+    if(!force&&S.settings.updatedAt&&cloud.updatedAt&&cloud.updatedAt<=S.settings.updatedAt){ S.settings.cloudSeen=j.updated_at||S.settings.cloudSeen; syncStatus("Local data is newer; nothing pulled."); return false; }
+    const keep={ghToken:S.settings.ghToken,syncPass:S.settings.syncPass,gistId:S.settings.gistId,apiKey:S.settings.apiKey||cloud.settings.apiKey};
+    S={...cloud,settings:{...cloud.settings,...keep,cloudSeen:(j.updated_at||new Date().toISOString())}}; applyCreds(); try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
     syncStatus("Pulled from cloud ("+(cloud.updatedAt||"").slice(0,16).replace("T"," ")+")"); render(); return true;
   }catch(e){ syncStatus("Pull failed: "+(e.name==="OperationError"?"wrong passphrase":e.message)); return false; }
 }
 
 // ---------- historical prices from Twelve Data (US twins scaled to your EUR anchor) ----------
-const HKEY="ledger_hist_v1"; let HIST=null;
+const DKEY="ledger_device_v1"; const HKEY="ledger_hist_v1"; let HIST=null;
+function saveDevice(){ try{ localStorage.setItem(DKEY,JSON.stringify({apiKey:S.settings.apiKey||"",ghToken:S.settings.ghToken||"",syncPass:S.settings.syncPass||"",gistId:S.settings.gistId||""})); }catch(e){} }
+function applyDevice(){ try{ const d=JSON.parse(localStorage.getItem(DKEY)||"null"); if(d){ for(const k of ["apiKey","ghToken","syncPass","gistId"]) if(d[k]&&!S.settings[k]) S.settings[k]=d[k]; } }catch(e){} }
 function loadHist(){ if(HIST)return HIST; try{ HIST=JSON.parse(localStorage.getItem(HKEY)||"null"); }catch(e){ HIST=null; } return HIST; }
+const CREDF=["apiKey","ghToken","syncPass","gistId"];
+function saveCreds(){ const c={}; CREDF.forEach(k=>{ if(S.settings[k])c[k]=S.settings[k]; }); try{ localStorage.setItem(CKEY,JSON.stringify(c)); }catch(e){} }
+function applyCreds(){ try{ const c=JSON.parse(localStorage.getItem(CKEY)||"{}"); CREDF.forEach(k=>{ if(c[k])S.settings[k]=c[k]; }); }catch(e){} }
 function saveHist(h){ HIST=h; try{ localStorage.setItem(HKEY,JSON.stringify(h)); }catch(e){} }
 async function tdSeries(sym,key){
   const url=`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}&interval=1day&outputsize=5000&apikey=${encodeURIComponent(key)}`;
@@ -672,8 +698,16 @@ document.addEventListener("click",async e=>{
   if(b.id==="a-add"){const tk=document.getElementById("a-ticker").value.trim().toUpperCase(); if(!tk)return; S.assets.push({ticker:tk,name:document.getElementById("a-name").value,isin:document.getElementById("a-isin").value.trim().toUpperCase(),target:N(document.getElementById("a-target").value)||0,price:0}); ["a-ticker","a-name","a-isin","a-target"].forEach(id=>document.getElementById(id).value=""); await save();}
   if(b.id==="sync-save"){S.settings.ghToken=document.getElementById("s-gh").value.trim();S.settings.syncPass=document.getElementById("s-pass").value;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} syncStatus("Connecting…"); const empty=!S.tx||!S.tx.length; const pulled=await pullCloud(empty); if(!pulled) await pushCloud(true);}
   if(b.id==="sync-pull"){syncStatus("Pulling…"); await pullCloud(true);}
-  if(b.id==="d-export"){try{await navigator.clipboard.writeText(JSON.stringify(S));setStatus("Backup copied");}catch(x){prompt("Copy this text:",JSON.stringify(S));}}
-  if(b.id==="d-import"){const v=prompt("Paste your backup:"); if(!v)return; try{const o=JSON.parse(v); if(o.assets&&o.tx){S=o;await save();}else alert("That does not look like a backup.");}catch(x){alert("Could not read that backup.");}}
+  if(b.id==="d-export"){const t=JSON.stringify(exportable());const el=document.getElementById("d-text");el.value=t;try{await navigator.clipboard.writeText(t);document.getElementById("d-status").textContent="Backup copied to the clipboard and shown above.";}catch(x){document.getElementById("d-status").textContent="Backup shown above; select and copy it.";}}
+  if(b.id==="d-load"){ const el=document.getElementById("d-text"); const st=document.getElementById("d-status"); const v=(el.value||"").trim();
+    if(!v){ st.textContent="Paste the backup text in the box above first."; return; }
+    try{ const o=JSON.parse(v);
+      if(!o.assets||!Array.isArray(o.assets)||!o.tx||!Array.isArray(o.tx)) throw new Error("not a Ledger backup");
+      const dev={apiKey:S.settings.apiKey,ghToken:S.settings.ghToken,syncPass:S.settings.syncPass,gistId:S.settings.gistId};
+      S={...o,settings:{...o.settings,...Object.fromEntries(Object.entries(dev).filter(([k,v])=>v))}};
+      fillProxies(); await save(); el.value="";
+      st.textContent=`Loaded: ${S.tx.length} transactions, ${S.assets.length} funds. Keys and passphrase kept.`;
+    }catch(x){ st.textContent="Could not read that: "+x.message; } }
   if(b.id==="d-reset"){if(confirm("Delete all transactions, prices and settings?")){S=defaults();await save();}}
 });
 document.getElementById("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")e.target.classList.remove("on");});
