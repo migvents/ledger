@@ -21,7 +21,7 @@ h2{font-size:18px;margin:26px 0 10px;display:flex;align-items:center;gap:6px}
 button{font:inherit;cursor:pointer}
 .wrap{max-width:720px;margin:0 auto;padding:0 16px 96px}
 .top{background:var(--card);margin:14px 0 0;padding:18px 16px 20px;border-radius:16px;box-shadow:var(--shadow);color:var(--ink)}
-.top .bar{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.top .topbar{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:2px}
 .top small{color:var(--ink2);font-size:12px}
 .hero{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-top:14px}
 .hero .big{font-family:Fraunces,Georgia,serif;font-size:40px;line-height:1;grid-column:1/-1;font-weight:600;letter-spacing:-.02em;color:var(--blue)}
@@ -76,7 +76,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outl
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><div class="bar"><h1>Ledger</h1><small id="saved" class="status"></small></div>
+  <div class="top"><div class="topbar"><h1>Ledger</h1><small id="saved" class="status"></small></div>
     <div class="hero">
       <div class="big" id="h-total">€0</div>
       <div><div class="k">Net contributions</div><div class="v" id="h-contrib">€0</div></div>
@@ -164,8 +164,10 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outl
     <div class="row one"><div><label>GitHub token (fine-grained, Gists read/write only)</label><input id="s-gh" placeholder="github_pat_…" autocomplete="off"></div></div>
     <div class="row one"><div><label>Sync passphrase (encrypts your data; same on every device)</label><input id="s-pass" type="password" autocomplete="off"></div></div>
     <p class="muted" id="sync-status"></p>
+    <p class="muted">Both devices need the same token and passphrase. If a device shows different data, press Pull from cloud on it.</p>
     <div class="actions"><button class="btn" id="sync-save">Save and sync now</button><button class="btn quiet" id="sync-pull">Pull from cloud</button></div>
     </div>
+    <p class="muted" id="verline"></p>
     <h2>Your data</h2>
     <div class="card">
     <p class="muted">Data is stored in this browser and, if sync is set up, in your encrypted gist. Export a backup now and then.</p>
@@ -225,7 +227,7 @@ const INFO = {
 const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
 
 // ---------- state ----------
-const KEY="ledger_v1";
+const KEY="ledger_v1"; const VERSION="build 11 · 2026-09-03";
 let mem=null;
 const defaults=()=>({
  settings:{band:5,tob:0.12,buffer:0,priceDate:new Date().toISOString().slice(0,10),rebalanceMonth:1,lastRebalance:"",monthly:200,maxOrders:5,autoPrices:true,dipTranche:0,dipTiers:[15,25,35],dipFired:[]},
@@ -242,7 +244,7 @@ async function load(){
   try{ const v=hasStore()?localStorage.getItem(KEY):mem; if(v) S=JSON.parse(v); }
   catch(e){}
   render(); setStatus(hasStore()?"Saved on this device":"No storage available");
-  await pullCloud(false);
+  await pullCloud(!S.tx||!S.tx.length);
   startPolling();
 }
 let pollTimer=null;
@@ -270,9 +272,11 @@ async function decrypt(blob,pass){const o=JSON.parse(blob);const key=await deriv
 const gh=(url,opt={})=>fetch(url,{...opt,headers:{"Authorization":"Bearer "+S.settings.ghToken,"Accept":"application/vnd.github+json","Content-Type":"application/json",...(opt.headers||{})}});
 function syncStatus(t){const e=document.getElementById("sync-status");if(e)e.textContent=t;}
 function exportable(){const o=JSON.parse(JSON.stringify(S));delete o.settings.ghToken;delete o.settings.syncPass;delete o.settings.gistId;return o;}
-async function pushCloud(){
+async function pushCloud(force){
   if(!S.settings.ghToken||!S.settings.syncPass)return;
-  if(syncing)return; syncing=true;
+  if(syncing)return;
+  if(!force&&(!S.tx||!S.tx.length)){ syncStatus("This device has no transactions yet; not uploading (use Pull from cloud)."); return; }
+  syncing=true;
   try{ const payload=exportable(); payload.updatedAt=new Date().toISOString(); S.settings.updatedAt=payload.updatedAt;
     const blob=await encrypt(JSON.stringify(payload),S.settings.syncPass);
     const body=JSON.stringify({description:"Ledger portfolio (encrypted)",public:false,files:{[GIST_FILE]:{content:blob}}});
@@ -435,6 +439,7 @@ function render(){
   document.getElementById("targetsum").textContent=`Targets add up to ${sum}%`+(Math.abs(sum-100)>0.01?" (should be 100%)":"");
   document.getElementById("s-band").value=S.settings.band; document.getElementById("s-tob").value=S.settings.tob; document.getElementById("s-buffer").value=S.settings.buffer; document.getElementById("s-month").value=S.settings.rebalanceMonth||1; document.getElementById("s-dip").value=S.settings.dipTranche||0; document.getElementById("s-tiers").value=(S.settings.dipTiers||[15,25,35]).join(","); document.getElementById("s-monthly").value=S.settings.monthly||0; document.getElementById("s-auto").value=S.settings.autoPrices===false?"0":"1"; document.getElementById("s-key").value=S.settings.apiKey||""; document.getElementById("s-gh").value=S.settings.ghToken||""; document.getElementById("s-pass").value=S.settings.syncPass||""; document.getElementById("s-poll").value=S.settings.pollSeconds||90; document.getElementById("s-orders").value=S.settings.maxOrders||2; document.getElementById("s-last").value=S.settings.lastRebalance||"";
   const sel=document.getElementById("t-ticker"); const cur=sel.value; sel.innerHTML=S.assets.map(a=>`<option>${a.ticker}</option>`).join(""); if(cur)sel.value=cur;
+  const vl=document.getElementById("verline"); if(vl)vl.textContent=VERSION+(S.settings.lastAuto?" · prices "+new Date(S.settings.lastAuto).toLocaleString():"")+(S.settings.updatedAt?" · synced "+new Date(S.settings.updatedAt).toLocaleString():" · not synced yet");
   document.getElementById("learnlist").innerHTML=LEARN_ORDER.map(k=>`<button class="item" data-info="${k}">${INFO[k].t}</button>`).join("");
   preview();
 }
@@ -579,7 +584,7 @@ document.addEventListener("click",async e=>{
   if(b.id==="s-save"){const hadKey=!!S.settings.apiKey;document.querySelectorAll("[data-name]").forEach(i=>S.assets[+i.dataset.name].name=i.value);document.querySelectorAll("[data-isin]").forEach(i=>S.assets[+i.dataset.isin].isin=i.value.trim().toUpperCase());document.querySelectorAll("[data-yahoo]").forEach(i=>S.assets[+i.dataset.yahoo].proxy=i.value.trim().toUpperCase());document.querySelectorAll("[data-broker]").forEach(i=>S.assets[+i.dataset.broker].broker=i.value.trim());document.querySelectorAll("[data-buym]").forEach(i=>S.assets[+i.dataset.buym].buyMonths=i.value.trim());document.querySelectorAll("[data-target]").forEach(i=>S.assets[+i.dataset.target].target=N(i.value)||0);
     S.settings.band=N(document.getElementById("s-band").value)||5;S.settings.tob=N(document.getElementById("s-tob").value)||0;S.settings.buffer=N(document.getElementById("s-buffer").value)||0;S.settings.rebalanceMonth=N(document.getElementById("s-month").value)||1;S.settings.dipTranche=N(document.getElementById("s-dip").value)||0;S.settings.dipTiers=document.getElementById("s-tiers").value.split(",").map(x=>N(x)).filter(x=>x>0).sort((a,b)=>a-b);if(!S.settings.dipTiers.length)S.settings.dipTiers=[15,25,35];S.settings.monthly=N(document.getElementById("s-monthly").value)||0;S.settings.autoPrices=document.getElementById("s-auto").value==="1";S.settings.apiKey=document.getElementById("s-key").value.trim();S.settings.pollSeconds=Math.max(30,N(document.getElementById("s-poll").value)||60);S.settings.maxOrders=Math.max(1,N(document.getElementById("s-orders").value)||2);S.settings.lastRebalance=document.getElementById("s-last").value||"";await save();}
   if(b.id==="a-add"){const tk=document.getElementById("a-ticker").value.trim().toUpperCase(); if(!tk)return; S.assets.push({ticker:tk,name:document.getElementById("a-name").value,isin:document.getElementById("a-isin").value.trim().toUpperCase(),target:N(document.getElementById("a-target").value)||0,price:0}); ["a-ticker","a-name","a-isin","a-target"].forEach(id=>document.getElementById(id).value=""); await save();}
-  if(b.id==="sync-save"){S.settings.ghToken=document.getElementById("s-gh").value.trim();S.settings.syncPass=document.getElementById("s-pass").value;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} syncStatus("Connecting…"); const pulled=await pullCloud(false); if(!pulled) await pushCloud();}
+  if(b.id==="sync-save"){S.settings.ghToken=document.getElementById("s-gh").value.trim();S.settings.syncPass=document.getElementById("s-pass").value;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} syncStatus("Connecting…"); const empty=!S.tx||!S.tx.length; const pulled=await pullCloud(empty); if(!pulled) await pushCloud(true);}
   if(b.id==="sync-pull"){syncStatus("Pulling…"); await pullCloud(true);}
   if(b.id==="d-export"){try{await navigator.clipboard.writeText(JSON.stringify(S));setStatus("Backup copied");}catch(x){prompt("Copy this text:",JSON.stringify(S));}}
   if(b.id==="d-import"){const v=prompt("Paste your backup:"); if(!v)return; try{const o=JSON.parse(v); if(o.assets&&o.tx){S=o;await save();}else alert("That does not look like a backup.");}catch(x){alert("Could not read that backup.");}}
