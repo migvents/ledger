@@ -117,7 +117,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outl
   <section id="p-tx" class="panel">
     <h2>Add a transaction</h2>
     <div class="card">
-    <div class="row"><div><label>Date</label><input type="date" id="t-date"></div><div><label>Type</label><select id="t-type"><option>Buy</option><option>Sell</option><option>Deposit</option><option>Withdrawal</option><option>Fee</option></select></div></div>
+    <div class="row"><div><label>Date</label><input type="date" id="t-date"></div><div><label>Type</label><select id="t-type"><option>Buy</option><option>Sell</option><option>Deposit</option><option>Withdrawal</option><option>Fee</option><option>Set aside</option></select></div></div>
     <div class="row" id="trade-fields"><div><label>Asset</label><select id="t-ticker"></select></div><div><label>Units</label><input type="text" id="t-units" inputmode="decimal"></div></div>
     <div class="row" id="trade-fields2"><div><label>Price per unit (€)</label><input type="text" id="t-price" inputmode="decimal"></div><div><label>Broker fee (€)</label><input type="text" id="t-fee" value="0" inputmode="decimal"></div></div>
     <div class="row one" id="cash-fields" style="display:none"><div><label>Amount (€)</label><input type="text" id="t-amount" inputmode="decimal"></div></div>
@@ -171,8 +171,10 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outl
     <div class="row one"><div><label>GitHub token (fine-grained, Gists read/write only)</label><input id="s-gh" placeholder="github_pat_…" autocomplete="off"></div></div>
     <div class="row one"><div><label>Sync passphrase (encrypts your data; same on every device)</label><input id="s-pass" type="password" autocomplete="off"></div></div>
     <p class="muted" id="sync-status"></p>
-    <p class="muted">Set this up once per device. After that every change uploads by itself, and the app checks for changes from your other device every minute while it is open. The buttons are only for setup or repairs.</p>
-    <div class="actions"><button class="btn" id="sync-save">Save and sync now</button><button class="btn quiet" id="sync-pull">Pull from cloud</button></div>
+    <p class="muted">Set this up once per device. After that every change uploads by itself, and the app checks for changes from your other device every minute while it is open. Safety rules: a device with no transactions never overwrites the cloud; a failed pull never triggers an upload; a cloud copy with fewer transactions than this device is not applied without asking. Every cloud version is kept and can be restored from Cloud versions.</p>
+    <div class="actions"><button class="btn" id="sync-save">Save and sync now</button><button class="btn quiet" id="sync-pull">Pull from cloud</button><button class="btn quiet" id="sync-replace">Replace cloud with this device</button></div>
+    <div class="actions"><button class="btn quiet" id="sync-history">Cloud versions (recover)</button><button class="btn quiet" id="sync-undo">Undo last cloud pull</button></div>
+    <div id="cloud-versions" style="margin-top:8px"></div>
     </div>
     <p class="muted" id="verline"></p>
     <h2>Your data</h2>
@@ -226,11 +228,11 @@ const INFO = {
  tobfile:{t:"Declaring TOB",p:["Because Revolut's investment arm is not a Belgian intermediary, it does not collect the tax on stock exchange transactions (TOB). You file the declaration and pay it yourself: the deadline is the last working day of the second month after the month of the trade (trades in September are declared and paid by the end of November). The form and payment details are on the FPS Finance website. Keep the fee and TOB record here; the amounts shown are 0.12% of each trade, the rate for Belgian-registered accumulating ETFs. The gold ETC may carry a different rate; check before filing."]},
  dip:{t:"The buy-the-dip rule",p:["The app records the highest price it has seen for each fund and measures how far the equity slices (gold excluded) have fallen from those peaks, weighted by target. When the fall crosses a tier (default 15%, 25%, 35%), it tells you to invest one extra tranche of the amount you set here, on top of the normal monthly plan, into the funds furthest below target. Each tier fires once per episode; the counter resets once equities are back within 5% of the peak.","How much: only money beyond your cash buffer, and decide the tranche now, while calm. Three tiers exist so you do not spend all your spare cash at −15% and have nothing left at −35%. If your spare savings are irregular, set the tranche to what you could put in three times without touching the buffer.","Peaks are only recorded when the app has seen the price, so a spike between openings may be missed; the rule is deliberately approximate."]},
  twin:{t:"US twin",p:["Free market data does not cover European listings, so each fund is tracked through a US-listed fund holding the same index: VOO for an S&P 500 fund, RSP for equal weight, VEA for developed ex-US, VWO for emerging markets, GLD for gold. The app scales the twin's moves onto the EUR price you entered. If you add a fund, put its twin here or the charts stay empty."]},
- schedule:{t:"Buy months",p:["Leave blank for funds bought monthly through the Revolut plan. For a fund bought at another broker with a fixed fee per order, enter the months you buy in (for example 3,9 for March and September). The app then removes that fund from the monthly Revolut split, tells you how much to set aside each month, and in those months shows how much has accumulated since the last purchase."]},
+ schedule:{t:"Buy months",p:["For a fund bought a few times a year, record the monthly amount you set aside with the one-tap button on the Overview. That money counts toward the fund's target, so it is not shown as underweight while it accumulates in your savings account. When you buy, log the purchase as usual and the set-aside balance is used up.","Leave blank for funds bought monthly through the Revolut plan. For a fund bought at another broker with a fixed fee per order, enter the months you buy in (for example 3,9 for March and September). The app then removes that fund from the monthly Revolut split, tells you how much to set aside each month, and in those months shows how much has accumulated since the last purchase."]},
  sync:{t:"Sync between devices",p:["Your data is saved in a private file (a 'gist') on your own GitHub account, encrypted with a passphrase before it leaves the device, so GitHub only ever stores scrambled text. Each device that has the token and the same passphrase reads and writes the same file; the newest copy wins.","To create the token: GitHub → your profile picture → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token. Name it 'ledger sync', set expiration to one year, leave repository access on 'Public repositories (read-only)', and under Account permissions set Gists to 'Read and write'. Copy the token once; GitHub will not show it again.","The token and passphrase stay on each device and are never uploaded. If you lose the passphrase the cloud copy cannot be read; your device copy still works and will re-upload."]},
  perf:{t:"Performance",p:["Once price history is downloaded (Funds tab), the chart and the table are rebuilt from your actual transactions valued at each day's prices, so they go back to your first purchase. Without it, they use the daily snapshots the app takes from installation onwards.","The app records the portfolio's total value once a day. Each row shows what it was worth on the nearest recorded day for that period, and the change in euros and percent to today's value. The last column shows how much of that change is money you deposited in the meantime, so you can tell growth from contributions at a glance. Periods longer than the recorded history show the date recording began."]},
  alloc:{t:"Allocation",p:["The ring shows how your money is actually split between the funds today, in euros and percent, with your target beside each one for comparison. Colours match the fund charts and the holdings list."]},
- kpi:{t:"Key figures",p:["Money in is deposits minus withdrawals. Gain is everything above that, so contributions never look like returns. Fund costs are the weighted average annual charge of what you hold, with the euro amount that represents at today's size. Worst drop recorded is the largest fall from a peak since the app started keeping daily values."]},
+ kpi:{t:"Key figures",p:["Set aside is money the plan has reserved for funds you buy a few times a year (gold, at your Bolero account) since their last purchase. The app counts it toward the target, so a fund waiting for its next purchase is not flagged as underweight.","Money in is deposits minus withdrawals. Gain is everything above that, so contributions never look like returns. Fund costs are the weighted average annual charge of what you hold, with the euro amount that represents at today's size. Worst drop recorded is the largest fall from a peak since the app started keeping daily values."]},
  funds:{t:"Funds",p:["Price history comes from Twelve Data's daily closes for each fund's US twin, converted with the EUR/USD rate of each day and scaled so today matches the EUR price you have. It goes back as far as the data allows (up to 20 years), so the charts are real history, not just days recorded since you installed the app. Tap Update history to refresh; it uses six requests of your daily allowance.","One card per fund: the current price, a chart of its price since the app started recording, the price change over each period, and your position: units held, value, share of the portfolio, what you paid, and the gain or loss on it. Price changes here are pure price moves; the gain on the right is your money's result including fees and TOB."]},
  acc:{t:"Accumulating vs distributing",p:["Accumulating ETFs reinvest dividends inside the fund. For a Belgian investor this avoids the 30% withholding tax on distributions and means nothing to reinvest by hand. Irish-domiciled funds are the standard choice for this."]},
 };
@@ -292,7 +294,7 @@ function exportable(){const o=JSON.parse(JSON.stringify(S));delete o.settings.gh
 async function pushCloud(force){
   if(!S.settings.ghToken||!S.settings.syncPass)return;
   if(syncing)return;
-  if(!force&&(!S.tx||!S.tx.length)){ syncStatus("This device has no transactions yet; not uploading (use Pull from cloud)."); return; }
+  if(!S.tx||!S.tx.length){ if(force!=="replace"){ syncStatus("This device has no transactions; not uploading. Use Pull from cloud, or Replace cloud only if you really mean to."); return; } }
   syncing=true;
   try{ const payload=exportable(); payload.updatedAt=new Date().toISOString(); S.settings.updatedAt=payload.updatedAt;
     const blob=await encrypt(JSON.stringify(payload),S.settings.syncPass);
@@ -319,9 +321,11 @@ async function backgroundSync(){
   catch(e){}
 }
 async function findGist(){ const r=await gh("https://api.github.com/gists?per_page=100"); if(!r.ok)throw new Error("token rejected ("+r.status+")"); const list=await r.json(); const g=list.find(x=>x.files&&x.files[GIST_FILE]); return g?g.id:""; }
-async function pullCloud(force){
+let lastPullError="";
+async function pullCloud(force,manual){
   if(!S.settings.ghToken||!S.settings.syncPass)return false;
-  try{ if(!S.settings.gistId){ S.settings.gistId=await findGist(); if(!S.settings.gistId){ syncStatus("No cloud copy yet; this device's data will be uploaded."); return false; } }
+  lastPullError="";
+  try{ if(!S.settings.gistId){ S.settings.gistId=await findGist(); saveCreds(); if(!S.settings.gistId){ syncStatus("No cloud copy yet."); return "nocloud"; } }
     const r=await gh("https://api.github.com/gists/"+S.settings.gistId); if(!r.ok)throw new Error("gist not reachable ("+r.status+")");
     const j=await r.json(); const f=j.files[GIST_FILE]; let content=f.content; if(f.truncated){content=await (await fetch(f.raw_url)).text();}
     const text=await decrypt(content,S.settings.syncPass); const cloud=JSON.parse(text);
@@ -329,7 +333,28 @@ async function pullCloud(force){
     const keep={ghToken:S.settings.ghToken,syncPass:S.settings.syncPass,gistId:S.settings.gistId,apiKey:S.settings.apiKey||cloud.settings.apiKey};
     S={...cloud,settings:{...cloud.settings,...keep,cloudSeen:(j.updated_at||new Date().toISOString())}}; applyCreds(); try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
     syncStatus("Pulled from cloud ("+(cloud.updatedAt||"").slice(0,16).replace("T"," ")+")"); render(); return true;
-  }catch(e){ syncStatus("Pull failed: "+(e.name==="OperationError"?"wrong passphrase":e.message)); return false; }
+  }catch(e){ lastPullError=(e.name==="OperationError"?"wrong passphrase":e.message); syncStatus("Pull failed: "+lastPullError); return false; }
+}
+// ---------- cloud version history (GitHub keeps every revision of the gist) ----------
+async function showCloudVersions(){
+  const box=document.getElementById("cloud-versions"); if(!S.settings.gistId){ syncStatus("No gist known yet."); return; }
+  box.innerHTML="Loading versions…";
+  try{ const r=await gh(`https://api.github.com/gists/${S.settings.gistId}/commits?per_page=30`); if(!r.ok)throw new Error("HTTP "+r.status); const list=await r.json();
+    box.innerHTML=list.length?`<p class="muted">Tap a version to inspect it. Nothing changes until you confirm.</p>`+list.map(v=>`<button class="btn quiet" data-rev="${v.version}" style="margin:3px 4px 3px 0;padding:6px 10px">${new Date(v.committed_at).toLocaleString()}</button>`).join(""):"No versions found.";
+  }catch(e){ box.innerHTML="Could not list versions: "+e.message; }
+}
+async function restoreCloudVersion(sha){
+  const box=document.getElementById("cloud-versions");
+  try{ const r=await gh(`https://api.github.com/gists/${S.settings.gistId}/${sha}`); if(!r.ok)throw new Error("HTTP "+r.status); const j=await r.json();
+    const f=j.files[GIST_FILE]; let content=f.content; if(f.truncated){content=await (await fetch(f.raw_url)).text();}
+    let cloud; try{ cloud=JSON.parse(await decrypt(content,S.settings.syncPass)); }catch(e){ box.insertAdjacentHTML("afterbegin",`<p class="muted">This version was saved with a different passphrase than the one entered now. Type that passphrase in the field above, press Save and sync now, then try again.</p>`); return; }
+    const n=(cloud.tx||[]).length, last=n?cloud.tx.map(t=>t.date).sort().pop():"-";
+    if(!confirm(`This version has ${n} transactions (latest ${last}) and ${(cloud.assets||[]).length} funds. Restore it to this device and make it the current cloud copy?`))return;
+    try{ localStorage.setItem("ledger_prev_v1",JSON.stringify(exportable())); }catch(e){}
+    const keep={}; CREDF.forEach(k=>{if(S.settings[k])keep[k]=S.settings[k];});
+    S={...cloud,settings:{...cloud.settings,...keep}}; applyCreds(); S.settings.updatedAt=new Date().toISOString();
+    localStorage.setItem(KEY,JSON.stringify(S)); render(); await pushCloud("replace"); syncStatus(`Restored version with ${n} transactions and uploaded it as the current copy.`);
+  }catch(e){ box.insertAdjacentHTML("afterbegin",`<p class="muted">Restore failed: ${e.message}</p>`); }
 }
 
 // ---------- historical prices from Twelve Data (US twins scaled to your EUR anchor) ----------
@@ -398,9 +423,19 @@ const N=v=>{const x=parseFloat(String(v??"").trim().replace(/\s/g,"").replace(",
 const eur=n=>(n<0?"-":"")+"€"+Math.abs(n).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
 const eur0=n=>(n<0?"-":"+")+"€"+Math.abs(n).toLocaleString("en-GB",{maximumFractionDigits:0});
 function tob(t){return (t.type==="Buy"||t.type==="Sell")?Math.round(t.units*t.price*S.settings.tob)/100:0;}
-function gross(t){return (t.type==="Buy"||t.type==="Sell")?t.units*t.price:t.amount;}
+function gross(t){return (t.type==="Buy"||t.type==="Sell")?t.units*t.price:(t.amount||0);}
 function cashEffect(t){const g=gross(t),f=t.fee||0,x=tob(t);
-  return t.type==="Deposit"?g:t.type==="Buy"?-(g+f+x):t.type==="Sell"?g-f-x:-g;}
+  return t.type==="Deposit"?g:t.type==="Buy"?-(g+f+x):t.type==="Sell"?g-f-x:t.type==="Set aside"?0:-g;}
+function monthsBetween(a,b){ return (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth()); }
+function setAside(a){
+  if(!(a.buyMonths&&a.buyMonths.trim()))return 0;
+  const share=(S.settings.monthly||0)*a.target/100; if(!share)return 0;
+  const buys=S.tx.filter(t=>t.ticker===a.ticker&&t.type==="Buy").map(t=>t.date).sort();
+  const from=buys.length?buys[buys.length-1]:(S.tx.map(t=>t.date).sort()[0]||null);
+  if(!from)return 0;
+  const m=Math.max(0,monthsBetween(new Date(from),new Date()));
+  return Math.round(m*share*100)/100;
+}
 function calc(){
   const out={deposits:0,withdrawals:0,cash:0,fees:0,holdings:[]};
   for(const t of S.tx){ if(t.type==="Deposit")out.deposits+=t.amount; if(t.type==="Withdrawal")out.withdrawals+=t.amount; out.cash+=cashEffect(t); if(t.type==="Fee")out.fees+=t.amount; out.fees+=(t.fee||0)+tob(t); }
@@ -411,11 +446,16 @@ function calc(){
       if(t.type==="Buy"){units+=t.units;unitsBought+=t.units;cost+=t.units*t.price+(t.fee||0)+tob(t);}
       if(t.type==="Sell"){units-=t.units;unitsSold+=t.units;sellProceeds+=t.units*t.price-(t.fee||0)-tob(t);} }
     const avg=unitsBought?cost/unitsBought:0, value=units*(a.price||0);
-    invested+=value;
-    out.holdings.push({a,units,avg,cost:units*avg,value,unreal:value-units*avg,real:sellProceeds-unitsSold*avg});
+    let aside=0; for(const t of S.tx){ if(t.ticker!==a.ticker)continue; if(t.type==="Set aside")aside+=t.amount; if(t.type==="Buy"&&a.buyMonths)aside-=t.units*t.price; }
+    aside=Math.max(0,Math.round(aside*100)/100);
+    invested+=value+aside; out.aside=(out.aside||0)+aside;
+    out.holdings.push({a,units,avg,cost:units*avg,value:value+aside,market:value,aside,unreal:value-units*avg,real:sellProceeds-unitsSold*avg});
   }
   out.invested=invested; out.total=invested+out.cash;
-  for(const h of out.holdings){ h.weight=invested?h.value/invested*100:0; h.drift=h.weight-h.a.target; h.action=h.a.target/100*invested-h.value; }
+  out.reserved=0; for(const h of out.holdings){ h.setAside=setAside(h.a); out.reserved+=h.setAside; }
+  const eff=invested+out.reserved;
+  for(const h of out.holdings){ h.weight=invested?h.value/invested*100:0; h.drift=h.weight-h.a.target; h.action=h.a.target/100*invested-h.value;
+    h.effWeight=eff?(h.value+h.setAside)/eff*100:0; h.effDrift=h.effWeight-h.a.target; }
   return out;
 }
 
@@ -425,7 +465,7 @@ function render(){
   document.getElementById("h-total").textContent=eur(c.total);
   document.getElementById("h-contrib").textContent=eur(c.deposits-c.withdrawals);
   const g=c.total-(c.deposits-c.withdrawals); const ge=document.getElementById("h-gain"); ge.textContent=eur(g); ge.className="v "+(g<0?"neg":g>0?"pos":"");
-  document.getElementById("h-cash").textContent=eur(c.cash);
+  document.getElementById("h-cash").textContent=eur(c.cash)+(c.aside?" + "+eur(c.aside)+" set aside":"");
   document.getElementById("h-fees").textContent=eur(c.fees);
   // daily snapshot of value and net contributions
   S.history=S.history||[]; const todayKey=new Date().toISOString().slice(0,10);
@@ -472,7 +512,7 @@ function render(){
     if(!picks.length||tot<=0){ picks=gaps.slice(0,maxN); tot=picks.reduce((s,g)=>s+g.h.a.target,0); plan=picks.map(g=>({h:g.h,amt:D*g.h.a.target/tot})); }
     else plan=picks.map(g=>({h:g.h,amt:D*Math.min(1,g.gap/tot)}));
     const rows=plan.map(p=>`<tr><td><strong>${p.h.a.ticker}</strong> <span class="muted">${p.h.drift>=0?"+":""}${p.h.drift.toFixed(1)} pts</span></td><td class="n">${eur(p.amt)}</td><td class="n">${(p.amt/p.h.a.price).toFixed(4)} units</td><td class="n muted">TOB ${eur(Math.round(p.amt*S.settings.tob)/100)}</td></tr>`).join("");
-    const flagged=c.holdings.filter(h=>Math.abs(h.drift)>band);
+    const flagged=c.holdings.filter(h=>Math.abs(h.setAside?h.effDrift:h.drift)>band);
     // Split funds: monthly (Revolut plan) vs periodic (bought in set months at another broker)
     const isPeriodic=h=>!!(h.a.buyMonths&&h.a.buyMonths.trim());
     const monthlyH=c.holdings.filter(h=>!isPeriodic(h)), periodicH=c.holdings.filter(isPeriodic);
@@ -488,12 +528,14 @@ function render(){
       const lastBuy=S.tx.filter(t=>t.type==="Buy"&&t.ticker===h.a.ticker).map(t=>t.date).sort().pop();
       const since=lastBuy?Math.max(0,(now.getFullYear()-new Date(lastBuy).getFullYear())*12+now.getMonth()-new Date(lastBuy).getMonth()):null;
       const accumulated=since==null?null:since*share; const due=months.includes(mNow);
-      periodicHtml+=`<div style="margin-top:8px"><strong>${h.a.ticker}</strong> via ${h.a.broker||"other broker"}: set aside ${eur(share)} a month; buy in ${months.map(m=>["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1]).join(" and ")}. ${due?`<span class="tag under">Buy this month</span> ${accumulated!=null?"About "+eur(accumulated)+" accumulated since "+lastBuy+".":"Invest what you have set aside."}${h.action>0?" It is "+eur0(h.action)+" below target.":""}`:(lastBuy?`Last bought ${lastBuy}.`:"No purchase yet.")}</div>`; }
+      const ym=now.toISOString().slice(0,7); const doneThisMonth=S.tx.some(t=>t.type==="Set aside"&&t.ticker===h.a.ticker&&t.date.slice(0,7)===ym);
+      const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      periodicHtml+=`<div style="margin-top:8px"><strong>${h.a.ticker}</strong> via ${h.a.broker||"other broker"}: set aside ${eur(share)} a month; buy in ${months.map(m=>mn[m-1]).join(" and ")}. Set aside so far: <strong>${eur(h.aside)}</strong> (counted toward its ${h.a.target}% target). ${doneThisMonth?`<span class="tag ok">This month recorded</span>`:`<button class="del" data-aside="${h.a.ticker}" data-amt="${share.toFixed(2)}" style="color:var(--ink);text-decoration:underline">Record ${eur(share)} set aside this month</button>`} ${due?`<span class="tag under">Buy this month</span> Invest the ${eur(h.aside)} set aside at ${h.a.broker||"your broker"}; log the purchase and the balance clears.`:(lastBuy?`Last bought ${lastBuy}.`:"")}</div>`; }
     n.innerHTML=`<strong>This month: invest ${eur(D)} like this.</strong><table style="margin:8px 0 4px">${rows}</table><div style="margin-top:8px"><strong>Revolut plan amounts (${eur(Dm)} a month, tilted):</strong><table style="margin:4px 0">${planRows}</table><span class="muted">${planNote}</span></div>${periodicHtml}<span class="muted">Above the plan: if you place orders by hand instead, buys go to the ${plan.length>1?plan.length+" funds":"fund"} furthest below target at today's prices, so the portfolio moves back toward ${S.assets.map(a=>a.target).join("/")} without selling anything.${flagged.length?` Note: ${flagged.map(h=>h.a.ticker).join(", ")} outside the ${band}-point band; keep buying the laggards and act on it at the ${["January","February","March","April","May","June","July","August","September","October","November","December"][(S.settings.rebalanceMonth||1)-1]} check.`:" No slice is outside the band; nothing to sell."}</span>`;
   }
   // annual plan inside alarm (if due)
   if(al.style.display!=="none"&&c.invested){
-    const over=c.holdings.filter(h=>h.drift>band), under=c.holdings.filter(h=>h.drift<-band);
+    const over=c.holdings.filter(h=>(h.setAside?h.effDrift:h.drift)>band), under=c.holdings.filter(h=>(h.setAside?h.effDrift:h.drift)<-band);
     if(over.length||under.length){
       const sells=over.map(h=>`sell ${eur0(h.value-h.a.target/100*c.invested).replace("+","")} of ${h.a.ticker}`);
       const buys=c.holdings.filter(h=>h.drift<0).sort((a,b)=>a.drift-b.drift).slice(0,3).map(h=>`buy ${h.a.ticker} (${eur0(h.a.target/100*c.invested-h.value)} short)`);
@@ -507,20 +549,20 @@ function render(){
   if(due.length){ td.style.display=""; td.innerHTML=`<strong>TOB to declare yourself (Revolut does not).</strong> `+due.map(d=>`${eur(d.amt)} from ${d.k} trades, due by ${d.dl.toISOString().slice(0,10)}`).join("; ")+`. <button class="info" data-info="tobfile">i</button>`; } else td.style.display="none";
   // holdings
   const hl=document.getElementById("holdings");
-  hl.innerHTML=c.holdings.map((h,idx)=>{const st=Math.abs(h.drift)>band?(h.drift>0?["over","Overweight"]:["under","Underweight"]):["ok","On target"];
+  hl.innerHTML=c.holdings.map((h,idx)=>{const D=h.setAside?h.effDrift:h.drift; const st=Math.abs(D)>band?(D>0?["over","Overweight"]:["under","Underweight"]):["ok","On target"];
     return `<div style="padding:10px 0;border-bottom:1px solid var(--rule)">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><div><span class="dot" style="background:${FUNDCOL[c.holdings.indexOf(h)%FUNDCOL.length]}"></span><strong>${h.a.ticker}</strong> <span class="muted">${h.a.name}</span></div><span class="tag ${st[0]}">${st[1]}</span></div>
       <div class="bar"><i style="width:${Math.min(100,h.weight)}%"></i><b style="left:${h.a.target}%"></b></div>
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:6px;flex-wrap:wrap;gap:4px 12px">
         <span>${h.weight.toFixed(1)}% now, target ${h.a.target}% (${h.drift>=0?"+":""}${h.drift.toFixed(1)} pts)</span>
-        <span>${eur(h.value)} <span class="muted">${h.units.toLocaleString("en-GB",{maximumFractionDigits:4})} units</span></span></div>
+        <span>${eur(h.value)} <span class="muted">${h.units.toLocaleString("en-GB",{maximumFractionDigits:4})} units${h.aside?" · incl. "+eur(h.aside)+" set aside":""}</span></span></div>
       <div style="display:flex;justify-content:space-between;font-size:13px;flex-wrap:wrap;gap:4px 12px" class="muted">
-        <span>Avg cost ${eur(h.avg)} <button class="info" data-info="avgcost">i</button></span>
+        <span>Avg cost ${eur(h.avg)} <button class="info" data-info="avgcost">i</button>${h.setAside?` · <span class="tag under">${eur(h.setAside)} set aside</span>`:""}</span>
         <span class="${h.unreal<0?"neg":h.unreal>0?"pos":""}">${h.unreal>=0?"+":""}${eur(h.unreal)}${h.real?` · realised ${eur(h.real)}`:""}</span>
         <span>To target: ${eur0(h.action)}</span></div></div>`;}).join("");
   // transactions
   const tl=document.getElementById("txlist"); const sorted=S.tx.map((t,i)=>({...t,i})).sort((a,b)=>b.date.localeCompare(a.date)||b.i-a.i);
-  tl.innerHTML=sorted.length?`<table><tr><th>Date</th><th>What</th><th class="n">Cash</th><th></th></tr>`+sorted.map(t=>`<tr><td>${t.date}</td><td>${t.type}${t.ticker?" "+t.ticker:""}${t.type==="Buy"||t.type==="Sell"?`<div class="muted">${t.units} × ${eur(t.price)}${(t.fee||tob(t))?`, fee ${eur(t.fee||0)}, TOB ${eur(tob(t))}${t.tobPaid?" (broker)":""}`:""}</div>`:""}${t.note?`<div class="muted">${t.note}</div>`:""}</td><td class="n">${eur(cashEffect(t))}</td><td><button class="del" data-del="${t.i}">Delete</button></td></tr>`).join("")+"</table>":`<div class="empty">No transactions yet. Add your first deposit above.</div>`;
+  tl.innerHTML=sorted.length?`<table><tr><th>Date</th><th>What</th><th class="n">Cash</th><th></th></tr>`+sorted.map(t=>`<tr><td>${t.date}</td><td>${t.type}${t.ticker?" "+t.ticker:""}${t.type==="Set aside"?" "+eur(t.amount):""}${t.type==="Buy"||t.type==="Sell"?`<div class="muted">${t.units} × ${eur(t.price)}${(t.fee||tob(t))?`, fee ${eur(t.fee||0)}, TOB ${eur(tob(t))}${t.tobPaid?" (broker)":""}`:""}</div>`:""}${t.note?`<div class="muted">${t.note}</div>`:""}</td><td class="n">${eur(cashEffect(t))}</td><td><button class="del" data-del="${t.i}">Delete</button></td></tr>`).join("")+"</table>":`<div class="empty">No transactions yet. Add your first deposit above.</div>`;
   // prices
   document.getElementById("pr-date").value=S.settings.priceDate;
   document.getElementById("pricelist").innerHTML=S.assets.map((a,i)=>`<div class="row"><div><label>${a.ticker}</label><div class="muted" style="padding-top:8px">${a.name}</div></div><div><label>Price (€)</label><input type="text" inputmode="decimal" data-price="${i}" value="${a.price||""}"></div></div>`).join("");
@@ -547,13 +589,14 @@ const TER={VUAA:0.07,XDEW:0.20,EXUS:0.15,VFEA:0.17,PPFB:0.12,IGLN:0.12,SGLN:0.12
 const PROXY={VUAA:"VOO",VUSA:"VOO",CSPX:"VOO",SXR8:"VOO",XDEW:"RSP",SPEQ:"RSP",EXUS:"VEA",IWDA:"URTH",VWCE:"VT",VFEA:"VWO",VFEM:"VWO",EIMI:"IEMG",PPFB:"GLD",IGLN:"GLD",SGLN:"GLD","8PSG":"GLD",SGLD:"GLD",VGEA:"BNDX",
  "IE00BFMXXD54":"VOO","IE00BLNMYC90":"RSP","IE0006WW1TQ4":"VEA","IE00BK5BR733":"VWO","IE00B4ND3602":"GLD","IE00B579F325":"GLD"};
 function fillProxies(){ let changed=false; for(const a of S.assets){ if(!a.proxy){ const g=PROXY[a.ticker]||PROXY[(a.isin||"").toUpperCase()]; if(g){a.proxy=g;changed=true;} } } return changed; }
-function spark(vals,color,W=680,Hh=90){
+function spark(vals,color,W=680,Hh=90,marks){
   if(vals.length<2) return "";
-  const pad=6, lo=Math.min(...vals), hi=Math.max(...vals), span=(hi-lo)||1;
+  const pad=8, lo=Math.min(...vals), hi=Math.max(...vals), span=(hi-lo)||1;
   const X=i=>pad+(W-2*pad)*i/(vals.length-1), Y=v=>Hh-pad-(Hh-2*pad)*(v-lo)/span;
   const d=vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
   const up=vals[vals.length-1]>=vals[0];
-  return `<svg viewBox="0 0 ${W} ${Hh}" width="100%" style="display:block"><path d="${d} L${X(vals.length-1).toFixed(1)} ${Hh-pad} L${pad} ${Hh-pad} Z" fill="${up?"var(--pale-green)":"var(--pale-red)"}" opacity=".6"/><path d="${d}" fill="none" stroke="${color||(up?"var(--green)":"var(--red)")}" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+  const dots=(marks||[]).map(m=>`<circle cx="${X(m.i).toFixed(1)}" cy="${Y(vals[m.i]).toFixed(1)}" r="4.5" fill="${m.sell?"var(--red)":"var(--green)"}" stroke="var(--white)" stroke-width="1.5"/>`).join("");
+  return `<svg viewBox="0 0 ${W} ${Hh}" width="100%" style="display:block"><path d="${d} L${X(vals.length-1).toFixed(1)} ${Hh-pad} L${pad} ${Hh-pad} Z" fill="${up?"var(--pale-green)":"var(--pale-red)"}" opacity=".55"/><path d="${d}" fill="none" stroke="${color||(up?"var(--green)":"var(--red)")}" stroke-width="2.5" stroke-linejoin="round"/>${dots}</svg>`;
 }
 function changeRows(series,cur,periods,fmt){
   const now=new Date(series[series.length-1].d);
@@ -594,6 +637,7 @@ function renderKpis(c){
    ["Fees and TOB paid",eur(c.fees),feePct.toFixed(2)+"% of money in"],
    ["Largest slice",big?`${big.a.ticker} ${big.weight.toFixed(0)}%`:"-","target "+(big?big.a.target:0)+"%"],
    ["Furthest below target",worst?`${worst.a.ticker} ${worst.drift.toFixed(1)} pts`:"-",worst&&worst.action>0?"needs "+eur0(worst.action):""],
+   ["Set aside, not yet bought",eur(c.reserved),c.reserved?"counts toward target":"nothing pending"],
    ["Worst drop recorded",dd,H.length>1?"since "+H[0].d:"from today"],
   ];
   el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">`+items.map(([k,v,sub])=>`<div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">${k}</div><div style="font-size:17px;font-weight:500">${v}</div>${sub?`<div class="muted" style="font-size:12px">${sub}</div>`:""}</div>`).join("")+`</div>`;
@@ -610,7 +654,10 @@ function renderFunds(c){
     const raw=(hist&&hist.series&&hist.series[h.a.ticker])||[];
     const ser=raw.filter(x=>x.d>=cutDate).map(x=>({d:x.d,x:x.p}));
     const why=!h.a.proxy?"no US twin set in Settings":!(h.a.price>0)?"no current price yet":"tap Update history";
-    const chart=ser.length>=2?spark(ser.map(x=>x.x),FUNDCOL[c.holdings.indexOf(h)%FUNDCOL.length]):`<p class="muted">No price history (${why}).</p>`;
+    const marks=[]; if(ser.length>=2){ for(const t of S.tx){ if(t.ticker!==h.a.ticker||(t.type!=="Buy"&&t.type!=="Sell"))continue;
+        let idx=-1; for(let i=0;i<ser.length;i++){ if(ser[i].d<=t.date)idx=i; else break; }
+        if(idx>=0&&t.date>=ser[0].d) marks.push({i:idx,sell:t.type==="Sell"}); } }
+    const chart=ser.length>=2?spark(ser.map(x=>x.x),FUNDCOL[c.holdings.indexOf(h)%FUNDCOL.length],680,90,marks):`<p class="muted">No price history (${why}).</p>`;
     const full=raw.map(x=>({d:x.d,x:x.p}));
     const rows=full.length>=2?changeRows(full,h.a.price,periods):"";
     const rangeChange=ser.length>=2?(()=>{const a=ser[0].x,b=ser[ser.length-1].x,p=(b/a-1)*100;return `<span class="${p<0?"neg":"pos"}">${p>=0?"+":""}${p.toFixed(1)}%</span> <span class="muted">over ${R} (from ${ser[0].d})</span>`;})():"";
@@ -655,6 +702,7 @@ function readForm(){
   if(type==="Buy"||type==="Sell"){const units=N(document.getElementById("t-units").value), price=N(document.getElementById("t-price").value); if(!(units>0&&price>0))return null;
     return {date,type,ticker:document.getElementById("t-ticker").value,units,price,fee:N(document.getElementById("t-fee").value)||0,note:document.getElementById("t-note").value,tobPaid:document.getElementById("t-tobpaid").checked};}
   const amount=N(document.getElementById("t-amount").value); if(!(amount>0))return null;
+  if(type==="Set aside") return {date,type,amount,ticker:document.getElementById("t-ticker").value,note:document.getElementById("t-note").value};
   return {date,type,amount,note:document.getElementById("t-note").value};
 }
 
@@ -687,6 +735,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.tab){document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("on",p.id==="p-"+b.dataset.tab));window.scrollTo(0,0);}
   if(b.dataset.info){const k=INFO[b.dataset.info];document.getElementById("sheetcard").innerHTML=`<h3>${k.t}</h3>`+k.p.map(p=>`<p>${p}</p>`).join("")+`<div class="actions"><button class="btn quiet" id="close">Close</button></div>`;document.getElementById("sheet").classList.add("on");}
   if(b.id==="close")document.getElementById("sheet").classList.remove("on");
+  if(b.dataset.aside){S.tx.push({date:new Date().toISOString().slice(0,10),type:"Set aside",ticker:b.dataset.aside,amount:N(b.dataset.amt),note:"monthly set-aside"});await save();setStatus("Set aside recorded");}
   if(b.id==="dip-done"){const tiers=S.settings.dipTiers||[15,25,35];S.settings.dipFired=Array.from(new Set([...(S.settings.dipFired||[]),...tiers.filter(t=>{const eq=S.assets.filter(a=>!/gold/i.test(a.name));const ts=eq.reduce((x,a)=>x+a.target,0);const d=eq.reduce((x,a)=>x+a.target/ts*(a.price/(a.peak||a.price)-1),0)*100;return d<=-t;})]));await save();setStatus("Tranche recorded");}
   if(b.id==="mark-reb"){S.settings.lastRebalance=new Date().toISOString().slice(0,10);await save();setStatus("Rebalance recorded");}
   if(b.dataset.del!==undefined){S.tx.splice(+b.dataset.del,1);await save();}
@@ -710,8 +759,15 @@ document.addEventListener("click",async e=>{
     ["a-ticker","a-name","a-isin","a-proxy","a-broker","a-buym","a-target"].forEach(id=>document.getElementById(id).value="");
     await save();
     st.textContent=`Added ${tk}${proxy?" (twin "+proxy+")":", no US twin: charts will stay empty until you set one"}. Enter its price in Prices, then Update history in Funds.`;}
-  if(b.id==="sync-save"){S.settings.ghToken=document.getElementById("s-gh").value.trim();S.settings.syncPass=document.getElementById("s-pass").value;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} syncStatus("Connecting…"); const empty=!S.tx||!S.tx.length; const pulled=await pullCloud(empty); if(!pulled) await pushCloud(true);}
-  if(b.id==="sync-pull"){syncStatus("Pulling…"); await pullCloud(true);}
+  if(b.id==="sync-save"){S.settings.ghToken=document.getElementById("s-gh").value.trim();S.settings.syncPass=document.getElementById("s-pass").value;saveCreds();try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} syncStatus("Connecting…");
+    const empty=!S.tx||!S.tx.length; const res=await pullCloud(empty,true);
+    if(res==="nocloud"){ if(!empty) await pushCloud(true); else syncStatus("No cloud copy yet and nothing on this device to upload."); }
+    else if(res===false){ /* pull failed or local newer: never overwrite on failure */ if(lastPullError) syncStatus("Not uploading because the pull failed: "+lastPullError+". Fix the passphrase, or use Cloud versions below to recover."); else if(!empty) await pushCloud(true); } }
+  if(b.id==="sync-pull"){syncStatus("Pulling…"); await pullCloud(true,true);}
+  if(b.id==="sync-replace"){ if(!S.tx||!S.tx.length){ if(!confirm("This device has NO transactions. Replacing the cloud copy will erase the cloud data. Continue?"))return; } else if(!confirm("Overwrite the cloud copy with this device's data?"))return; await pushCloud("replace"); }
+  if(b.id==="sync-undo"){ try{ const prev=localStorage.getItem("ledger_prev_v1"); if(!prev){syncStatus("Nothing to undo.");return;} const keep={}; CREDF.forEach(k=>{if(S.settings[k])keep[k]=S.settings[k];}); S={...JSON.parse(prev)}; S.settings={...S.settings,...keep}; localStorage.setItem(KEY,JSON.stringify(S)); syncStatus("Restored the data this device had before the last cloud pull. Press Replace cloud if this is the good copy."); render(); }catch(e){ syncStatus("Undo failed: "+e.message); } }
+  if(b.id==="sync-history"){ await showCloudVersions(); }
+  if(b.dataset.rev){ await restoreCloudVersion(b.dataset.rev); }
   if(b.id==="d-export"){const t=JSON.stringify(exportable());const el=document.getElementById("d-text");el.value=t;try{await navigator.clipboard.writeText(t);document.getElementById("d-status").textContent="Backup copied to the clipboard and shown above.";}catch(x){document.getElementById("d-status").textContent="Backup shown above; select and copy it.";}}
   if(b.id==="d-load"){ const el=document.getElementById("d-text"); const st=document.getElementById("d-status"); const v=(el.value||"").trim();
     if(!v){ st.textContent="Paste the backup text in the box above first."; return; }
@@ -725,7 +781,11 @@ document.addEventListener("click",async e=>{
   if(b.id==="d-reset"){if(confirm("Delete all transactions, prices and settings?")){S=defaults();await save();}}
 });
 document.getElementById("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")e.target.classList.remove("on");});
-document.getElementById("t-type").addEventListener("change",e=>{const trade=e.target.value==="Buy"||e.target.value==="Sell";document.getElementById("trade-fields").style.display=trade?"":"none";document.getElementById("trade-fields2").style.display=trade?"":"none";document.getElementById("cash-fields").style.display=trade?"none":"";preview();});
+document.getElementById("t-type").addEventListener("change",e=>{const v=e.target.value, trade=v==="Buy"||v==="Sell", aside=v==="Set aside";
+  document.getElementById("trade-fields").style.display=(trade||aside)?"":"none";
+  document.getElementById("t-units").parentElement.style.display=aside?"none":"";
+  document.getElementById("trade-fields2").style.display=trade?"":"none";
+  document.getElementById("cash-fields").style.display=trade?"none":"";preview();});
 ["t-units","t-price","t-fee","t-amount","t-date","t-ticker"].forEach(id=>document.getElementById(id).addEventListener("input",preview));
 document.getElementById("t-ticker").addEventListener("change",e=>{const a=S.assets.find(x=>x.ticker===e.target.value);document.getElementById("t-tobpaid").checked=!!(a&&a.broker&&a.broker.toLowerCase()!=="revolut");});
 document.getElementById("t-date").value=new Date().toISOString().slice(0,10);
