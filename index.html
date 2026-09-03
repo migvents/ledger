@@ -94,6 +94,10 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outl
     <div class="next" id="dip" style="display:none;background:var(--pale-green);border-left-color:var(--green)"></div>
     <div class="next" id="next"></div>
     <div class="next" id="tobdue" style="display:none;background:var(--white);border-left-color:var(--blue)"></div>
+    <h2>Allocation <button class="info" data-info="alloc">i</button></h2>
+    <div class="card"><div id="donut"></div></div>
+    <h2>Key figures <button class="info" data-info="kpi">i</button></h2>
+    <div class="card"><div id="kpis"></div></div>
     <h2>Holdings <button class="info" data-info="drift">i</button></h2>
     <div class="card" id="holdings"></div>
     <p class="muted" id="pricedate"></p>
@@ -213,6 +217,8 @@ const INFO = {
  schedule:{t:"Buy months",p:["Leave blank for funds bought monthly through the Revolut plan. For a fund bought at another broker with a fixed fee per order, enter the months you buy in (for example 3,9 for March and September). The app then removes that fund from the monthly Revolut split, tells you how much to set aside each month, and in those months shows how much has accumulated since the last purchase."]},
  sync:{t:"Sync between devices",p:["Your data is saved in a private file (a 'gist') on your own GitHub account, encrypted with a passphrase before it leaves the device, so GitHub only ever stores scrambled text. Each device that has the token and the same passphrase reads and writes the same file; the newest copy wins.","To create the token: GitHub → your profile picture → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token. Name it 'ledger sync', set expiration to one year, leave repository access on 'Public repositories (read-only)', and under Account permissions set Gists to 'Read and write'. Copy the token once; GitHub will not show it again.","The token and passphrase stay on each device and are never uploaded. If you lose the passphrase the cloud copy cannot be read; your device copy still works and will re-upload."]},
  perf:{t:"Performance",p:["The app records the portfolio's total value once a day. Each row shows what it was worth on the nearest recorded day for that period, and the change in euros and percent to today's value. The last column shows how much of that change is money you deposited in the meantime, so you can tell growth from contributions at a glance. Periods longer than the recorded history show the date recording began."]},
+ alloc:{t:"Allocation",p:["The ring shows how your money is actually split between the funds today, in euros and percent, with your target beside each one for comparison. Colours match the fund charts and the holdings list."]},
+ kpi:{t:"Key figures",p:["Money in is deposits minus withdrawals. Gain is everything above that, so contributions never look like returns. Fund costs are the weighted average annual charge of what you hold, with the euro amount that represents at today's size. Worst drop recorded is the largest fall from a peak since the app started keeping daily values."]},
  funds:{t:"Funds",p:["One card per fund: the current price, a chart of its price since the app started recording, the price change over each period, and your position: units held, value, share of the portfolio, what you paid, and the gain or loss on it. Price changes here are pure price moves; the gain on the right is your money's result including fees and TOB."]},
  acc:{t:"Accumulating vs distributing",p:["Accumulating ETFs reinvest dividends inside the fund. For a Belgian investor this avoids the 30% withholding tax on distributions and means nothing to reinvest by hand. Irish-domiciled funds are the standard choice for this."]},
 };
@@ -332,7 +338,7 @@ function render(){
     const pmap={}; S.assets.forEach(a=>pmap[a.ticker]=Math.round(a.price*100)/100);
     if(!lastH||lastH.d!==todayKey){ S.history.push({d:todayKey,v:Math.round(c.total*100)/100,k:Math.round((c.deposits-c.withdrawals)*100)/100,p:pmap}); if(S.history.length>9000)S.history.shift(); try{ if(hasStore())localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
     else { lastH.v=Math.round(c.total*100)/100; lastH.k=Math.round((c.deposits-c.withdrawals)*100)/100; lastH.p=pmap; } }
-  renderPerf(c); renderFunds(c);
+  renderPerf(c); renderAlloc(c); renderKpis(c); renderFunds(c);
   document.getElementById("pricedate").textContent=S.assets.some(a=>a.price>0)?"Valued at prices from "+S.settings.priceDate+(S.settings.autoPrices!==false?" · "+(S.settings.priceNotes||""):". Update them in Prices."):"Prices will be fetched automatically; or enter them in the Prices tab.";
   // annual alarm
   const al=document.getElementById("alarm"); const now=new Date(); const rm=S.settings.rebalanceMonth||1;
@@ -433,6 +439,7 @@ function render(){
   preview();
 }
 const FUNDCOL=["#2563EB","#7C3AED","#0891B2","#059669","#C8962E","#DB2777"];
+const TER={VUAA:0.07,XDEW:0.20,EXUS:0.15,VFEA:0.17,PPFB:0.12};
 function spark(vals,color,W=680,Hh=90){
   if(vals.length<2) return "";
   const pad=6, lo=Math.min(...vals), hi=Math.max(...vals), span=(hi-lo)||1;
@@ -448,6 +455,41 @@ function changeRows(series,cur,periods,fmt){
     let then=series[0]; for(const h of series){ if(h.d<=key)then=h; else break; }
     const ch=cur-then.x, pct=then.x>0?ch/then.x*100:0;
     return `<span><span class="muted">${lab}</span> <span class="${ch<0?"neg":ch>0?"pos":""}">${pct>=0?"+":""}${pct.toFixed(1)}%</span></span>`; }).join(" · ");
+}
+function renderAlloc(c){
+  const el=document.getElementById("donut"); if(!el)return;
+  const tot=c.invested; if(!tot){ el.innerHTML=`<p class="muted">Buy something and the allocation appears here.</p>`; return; }
+  const R=54,r=34,CX=60,CY=60; let a0=-Math.PI/2; const segs=[];
+  c.holdings.forEach((h,i)=>{ const frac=h.value/tot; if(frac<=0)return; const a1=a0+frac*2*Math.PI;
+    const big=frac>0.5?1:0, col=FUNDCOL[i%FUNDCOL.length];
+    const x=(rad,a)=>CX+rad*Math.cos(a), y=(rad,a)=>CY+rad*Math.sin(a);
+    segs.push(`<path d="M${x(R,a0).toFixed(2)} ${y(R,a0).toFixed(2)} A${R} ${R} 0 ${big} 1 ${x(R,a1).toFixed(2)} ${y(R,a1).toFixed(2)} L${x(r,a1).toFixed(2)} ${y(r,a1).toFixed(2)} A${r} ${r} 0 ${big} 0 ${x(r,a0).toFixed(2)} ${y(r,a0).toFixed(2)} Z" fill="${col}"/>`);
+    a0=a1; });
+  const legend=c.holdings.map((h,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;font-size:14px"><span><span class="dot" style="background:${FUNDCOL[i%FUNDCOL.length]}"></span>${h.a.ticker}</span><span class="n">${eur(h.value)} <span class="muted">${h.weight.toFixed(1)}%</span> <span class="muted">/ ${h.a.target}%</span></span></div>`).join("");
+  el.innerHTML=`<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><svg viewBox="0 0 120 120" width="120" height="120" style="flex:0 0 120px">${segs.join("")}<text x="60" y="57" text-anchor="middle" font-size="13" font-family="Fraunces,Georgia,serif" fill="var(--ink)">${eur0(tot).replace("+","")}</text><text x="60" y="72" text-anchor="middle" font-size="8" fill="var(--ink2)">invested</text></svg><div style="flex:1;min-width:190px">${legend}</div></div>`;
+}
+function renderKpis(c){
+  const el=document.getElementById("kpis"); if(!el)return; const H=S.history||[];
+  const net=c.deposits-c.withdrawals, gain=c.total-net, gainPct=net>0?gain/net*100:0;
+  const ter=c.invested?c.holdings.reduce((x,h)=>x+h.value*(TER[h.a.ticker]||0.15),0)/c.invested:0;
+  const feePct=net>0?c.fees/net*100:0;
+  const worst=c.holdings.slice().sort((a,b)=>a.drift-b.drift)[0], big=c.holdings.slice().sort((a,b)=>b.weight-a.weight)[0];
+  const first=S.tx.map(t=>t.date).sort()[0];
+  const months=first?Math.max(1,(new Date()-new Date(first))/(365.25/12*864e5)):1;
+  const perMonth=net/months;
+  let dd="-"; if(H.length>1){ let peak=0,mx=0; for(const h of H){ peak=Math.max(peak,h.v); mx=Math.min(mx,(h.v-peak)/(peak||1)); } dd=(mx*100).toFixed(1)+"%"; }
+  const items=[
+   ["Total value",eur(c.total),""],
+   ["Money in",eur(net),first?"since "+first:""],
+   ["Gain",`<span class="${gain<0?"neg":gain>0?"pos":""}">${gain>=0?"+":""}${eur(gain)}</span>`,`${gainPct>=0?"+":""}${gainPct.toFixed(1)}% on money in`],
+   ["Average per month",eur(perMonth),months.toFixed(0)+" months"],
+   ["Fund costs",ter.toFixed(2)+"% a year",eur(c.invested*ter/100)+" a year at this size"],
+   ["Fees and TOB paid",eur(c.fees),feePct.toFixed(2)+"% of money in"],
+   ["Largest slice",big?`${big.a.ticker} ${big.weight.toFixed(0)}%`:"-","target "+(big?big.a.target:0)+"%"],
+   ["Furthest below target",worst?`${worst.a.ticker} ${worst.drift.toFixed(1)} pts`:"-",worst&&worst.action>0?"needs "+eur0(worst.action):""],
+   ["Worst drop recorded",dd,H.length>1?"since "+H[0].d:"from today"],
+  ];
+  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">`+items.map(([k,v,sub])=>`<div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">${k}</div><div style="font-size:17px;font-weight:500">${v}</div>${sub?`<div class="muted" style="font-size:12px">${sub}</div>`:""}</div>`).join("")+`</div>`;
 }
 function renderFunds(c){
   const el=document.getElementById("fundlist"); if(!el)return; const H=S.history||[];
