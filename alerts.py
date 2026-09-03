@@ -90,8 +90,29 @@ else:
     print("No equity data at all; skipping dip check.")
 
 if today.month == cfg["rebalance_month"] and state.get("last_rebalance_alert") != str(today.year):
-    notify("Ledger: annual rebalance check",
-           "Open the app, check drift against the 5-point band, trade only what is outside it, mark it done.")
+    msg = "Open the app: Transactions > Rebalance shows the steps."
+    L2 = load_ledger()
+    if L2:
+        try:
+            st2, assets2, tx2 = L2["settings"], L2["assets"], L2.get("tx", [])
+            band = float(st2.get("band", 5) or 5); hold2 = []
+            for a_ in assets2:
+                u = sum(t["units"] for t in tx2 if t.get("ticker") == a_["ticker"] and t["type"] == "Buy") - \
+                    sum(t["units"] for t in tx2 if t.get("ticker") == a_["ticker"] and t["type"] == "Sell")
+                hold2.append((a_["ticker"], float(a_["target"]), u * float(a_.get("price") or 0)))
+            inv2 = sum(v for _, _, v in hold2)
+            if inv2:
+                parts = []
+                for tk, tg, v in hold2:
+                    w = v / inv2 * 100; d = w - tg
+                    if abs(d) > band:
+                        delta = tg / 100 * inv2 - v
+                        parts.append(f"{tk} {w:.0f}% vs {tg:.0f}%: {'buy' if delta > 0 else 'sell'} about EUR {abs(delta):.0f}")
+                msg = ("Out of band: " + "; ".join(parts) + ". Prefer fixing with deposits; otherwise sell the excess first, then buy. Record the trades under Transactions > Rebalance.") if parts else \
+                      "Everything is within the band. Nothing to trade; open the app and mark it done."
+        except Exception as e:
+            print("rebalance plan failed:", e)
+    notify("Ledger: annual rebalance", msg)
     state["last_rebalance_alert"] = str(today.year)
 
 key = today.strftime("%Y-%m")
