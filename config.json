@@ -1,0 +1,14 @@
+{
+  "funds": [
+    {"ticker": "VUAA", "symbol": "VUAA", "exchange": "XETR", "target": 40, "equity": true},
+    {"ticker": "XDEW", "symbol": "XDEW", "exchange": "XETR", "target": 20, "equity": true},
+    {"ticker": "EXUS", "symbol": "EXUS", "exchange": "XETR", "target": 15, "equity": true},
+    {"ticker": "VFEA", "symbol": "VFEA", "exchange": "XETR", "target": 15, "equity": true},
+    {"ticker": "PPFB", "symbol": "PPFB", "exchange": "XETR", "target": 10, "equity": false}
+  ],
+  "dip_tiers_percent": [15, 25, 35],
+  "extra_tranche_eur": 0,
+  "monthly_eur": 200,
+  "rebalance_month": 1,
+  "tob_reminder_day": 20
+}

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledger</title>
+<meta name="robots" content="noindex">
+<style>
+:root{
+  --paper:#F7F6F1; --ink:#1C2430; --ink2:#5A6472; --rule:#D9D6CC;
+  --blue:#2F5D8A; --gold:#A8802B; --red:#A9423B; --green:#3C7A5A;
+  --pale-red:#F3DEDC; --pale-green:#DDEEE3; --pale-gold:#F3E9CF; --white:#FFFFFF;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2{font-family:Georgia,"Times New Roman",serif;font-weight:normal;margin:0}
+h1{font-size:28px;line-height:1.1}
+h2{font-size:19px;margin:22px 0 10px}
+button{font:inherit;cursor:pointer}
+.wrap{max-width:720px;margin:0 auto;padding:18px 16px 90px}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
+.top small{color:var(--ink2)}
+.hero{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin:14px 0 6px;padding-bottom:14px;border-bottom:2px solid var(--ink)}
+.hero .big{font-family:Georgia,serif;font-size:34px;line-height:1;grid-column:1/-1}
+.hero .k{color:var(--ink2);font-size:13px}
+.hero .v{font-size:17px}
+.pos{color:var(--green)} .neg{color:var(--red)}
+.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--rule);display:flex;justify-content:space-around;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+.tabs button{background:none;border:0;color:var(--ink2);padding:6px 10px;border-radius:6px;font-size:13px}
+.tabs button.on{color:var(--ink);background:var(--paper);font-weight:600}
+.panel{display:none}.panel.on{display:block}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:600;color:var(--ink2);font-size:12px;padding:6px 6px;border-bottom:1px solid var(--ink)}
+td{padding:9px 6px;border-bottom:1px solid var(--rule);vertical-align:top}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:12px;white-space:nowrap}
+.tag.ok{background:var(--pale-green);color:var(--green)}
+.tag.over{background:var(--pale-red);color:var(--red)}
+.tag.under{background:var(--pale-gold);color:var(--gold)}
+.bar{height:8px;background:var(--rule);border-radius:4px;position:relative;margin-top:5px}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--blue);border-radius:4px}
+.bar b{position:absolute;top:-3px;width:2px;height:14px;background:var(--ink)}
+.next{margin:14px 0;padding:12px 14px;background:var(--pale-gold);border-left:3px solid var(--gold);border-radius:0 6px 6px 0}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.row.one{grid-template-columns:1fr}
+label{display:block;font-size:12px;color:var(--ink2);margin-bottom:3px}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--white);font:inherit;color:var(--ink)}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.btn{background:var(--ink);color:var(--white);border:0;padding:11px 16px;border-radius:6px;font-weight:600}
+.btn.quiet{background:none;color:var(--ink);border:1px solid var(--rule)}
+.btn.danger{background:none;color:var(--red);border:1px solid var(--red)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--ink2);color:var(--ink2);background:none;font-size:11px;font-family:Georgia,serif;font-style:italic;margin-left:4px;vertical-align:middle;padding:0}
+.del{background:none;border:0;color:var(--red);font-size:12px;padding:0}
+.muted{color:var(--ink2);font-size:13px}
+.empty{padding:20px;border:1px dashed var(--rule);border-radius:6px;color:var(--ink2);text-align:center}
+.sheet{position:fixed;inset:0;background:rgba(28,36,48,.45);display:none;align-items:flex-end;justify-content:center;z-index:9}
+.sheet.on{display:flex}
+.card{background:var(--white);width:100%;max-width:720px;max-height:80vh;overflow:auto;border-radius:14px 14px 0 0;padding:20px 18px 32px}
+.card h3{font-family:Georgia,serif;font-weight:normal;font-size:20px;margin:0 0 8px}
+.card p{margin:0 0 10px}
+.learn button.item{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--rule);padding:12px 2px;font-size:15px;color:var(--ink)}
+.status{font-size:12px;color:var(--ink2)}
+@media (prefers-reduced-motion:no-preference){.card{animation:up .18s ease-out}@keyframes up{from{transform:translateY(20px);opacity:.6}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>Ledger</h1><small id="saved" class="status"></small></div>
+
+  <!-- OVERVIEW -->
+  <section id="p-overview" class="panel on">
+    <div class="hero">
+      <div class="big" id="h-total">€0</div>
+      <div><div class="k">Net contributions</div><div class="v" id="h-contrib">€0</div></div>
+      <div><div class="k">Gain / loss <button class="info" data-info="gain">i</button></div><div class="v" id="h-gain">€0</div></div>
+      <div><div class="k">Cash at broker <button class="info" data-info="cash">i</button></div><div class="v" id="h-cash">€0</div></div>
+      <div><div class="k">Fees and tax paid <button class="info" data-info="tob">i</button></div><div class="v" id="h-fees">€0</div></div>
+    </div>
+    <div class="next" id="alarm" style="display:none;background:var(--pale-red);border-left-color:var(--red)"></div>
+    <div class="next" id="dip" style="display:none;background:var(--pale-green);border-left-color:var(--green)"></div>
+    <div class="next" id="next"></div>
+    <div class="next" id="tobdue" style="display:none;background:var(--white);border-left-color:var(--blue)"></div>
+    <h2>Holdings <button class="info" data-info="drift">i</button></h2>
+    <div id="holdings"></div>
+    <p class="muted" id="pricedate"></p>
+  </section>
+
+  <!-- TRANSACTIONS -->
+  <section id="p-tx" class="panel">
+    <h2>Add a transaction</h2>
+    <div class="row"><div><label>Date</label><input type="date" id="t-date"></div><div><label>Type</label><select id="t-type"><option>Buy</option><option>Sell</option><option>Deposit</option><option>Withdrawal</option><option>Fee</option></select></div></div>
+    <div class="row" id="trade-fields"><div><label>Asset</label><select id="t-ticker"></select></div><div><label>Units</label><input type="number" step="any" id="t-units" inputmode="decimal"></div></div>
+    <div class="row" id="trade-fields2"><div><label>Price per unit (€)</label><input type="number" step="any" id="t-price" inputmode="decimal"></div><div><label>Broker fee (€)</label><input type="number" step="any" id="t-fee" value="0" inputmode="decimal"></div></div>
+    <div class="row one" id="cash-fields" style="display:none"><div><label>Amount (€)</label><input type="number" step="any" id="t-amount" inputmode="decimal"></div></div>
+    <div class="row one"><div><label>Note (optional)</label><input id="t-note"></div></div>
+    <p class="muted" id="t-preview"></p>
+    <div class="actions"><button class="btn" id="t-add">Add transaction</button></div>
+    <h2>History</h2>
+    <div id="txlist"></div>
+  </section>
+
+  <!-- PRICES -->
+  <section id="p-prices" class="panel">
+    <h2>Current prices <button class="info" data-info="prices">i</button></h2>
+    <div class="row one"><div><label>Price date</label><input type="date" id="pr-date"></div></div>
+    <div id="pricelist"></div>
+    <p class="muted" id="pr-status"></p>
+    <div class="actions"><button class="btn quiet" id="pr-fetch">Refresh now</button><button class="btn" id="pr-save">Save prices</button></div>
+    <p class="muted">Refresh pulls Xetra quotes into the fields for you to check before saving. When live prices are on in Settings this happens automatically.</p>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="p-settings" class="panel">
+    <h2>Target allocation <button class="info" data-info="targets">i</button></h2>
+    <div id="assetlist"></div>
+    <p class="muted" id="targetsum"></p>
+    <div class="row"><div><label>New asset ticker</label><input id="a-ticker" placeholder="e.g. VWCE"></div><div><label>Name</label><input id="a-name"></div></div>
+    <div class="row one"><div><label>ISIN (helps price lookup)</label><input id="a-isin" placeholder="e.g. IE00BK5BR733"></div></div>
+    <div class="row"><div><label>Target %</label><input type="number" step="any" id="a-target" inputmode="decimal"></div><div><label>&nbsp;</label><button class="btn quiet" id="a-add" style="width:100%">Add asset</button></div></div>
+    <h2>Rules</h2>
+    <div class="row"><div><label>Rebalance band (percentage points) <button class="info" data-info="band">i</button></label><input type="number" step="any" id="s-band" inputmode="decimal"></div><div><label>TOB rate % <button class="info" data-info="tob">i</button></label><input type="number" step="any" id="s-tob" inputmode="decimal"></div></div>
+    <div class="row one"><div><label>Cash buffer you want to keep outside investments (€) <button class="info" data-info="buffer">i</button></label><input type="number" step="any" id="s-buffer" inputmode="decimal"></div></div>
+    <div class="row one"><div><label>Twelve Data API key <button class="info" data-info="apikey">i</button></label><input id="s-key" placeholder="paste your key" autocomplete="off"></div></div>
+    <div class="row"><div><label>Prices</label><select id="s-auto"><option value="1">Live, refresh automatically</option><option value="0">Manual only</option></select></div><div><label>Refresh every (seconds)</label><input type="number" step="1" id="s-poll" inputmode="numeric"></div></div>
+    <div class="row"><div><label>Monthly amount you invest (€)</label><input type="number" step="any" id="s-monthly" inputmode="decimal"></div><div><label>Max orders per month <button class="info" data-info="orders">i</button></label><input type="number" step="1" id="s-orders" inputmode="numeric"></div></div>
+    <div class="row"><div><label>Extra tranche per dip tier (€) <button class="info" data-info="dip">i</button></label><input type="number" step="any" id="s-dip" inputmode="decimal"></div><div><label>Dip tiers (% below peak)</label><input id="s-tiers" placeholder="15,25,35"></div></div>
+    <div class="row"><div><label>Annual rebalance month <button class="info" data-info="month">i</button></label><select id="s-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div><div><label>Last rebalance done on</label><input type="date" id="s-last"></div></div>
+    <div class="actions"><button class="btn" id="s-save">Save rules</button></div>
+    <h2>Your data</h2>
+    <p class="muted">Data is stored privately in this app. Export a backup now and then.</p>
+    <div class="actions"><button class="btn quiet" id="d-export">Copy backup to clipboard</button><button class="btn quiet" id="d-import">Paste backup</button><button class="btn danger" id="d-reset">Delete everything</button></div>
+  </section>
+
+  <!-- LEARN -->
+  <section id="p-learn" class="panel learn">
+    <h2>Things worth knowing</h2>
+    <div id="learnlist"></div>
+  </section>
+</div>
+
+<nav class="tabs">
+  <button class="on" data-tab="overview">Overview</button>
+  <button data-tab="tx">Transactions</button>
+  <button data-tab="prices">Prices</button>
+  <button data-tab="settings">Settings</button>
+  <button data-tab="learn">Learn</button>
+</nav>
+
+<div class="sheet" id="sheet"><div class="card" id="sheetcard"></div></div>
+
+<script>
+// ---------- explanations ----------
+const INFO = {
+ gain:{t:"Gain / loss",p:["Unrealised gain is the difference between what your units are worth today and what you paid for them, including broker fees and TOB. It only becomes real (realised) when you sell.","A loss on paper is not a cost you have paid. But a 50% fall needs a 100% rise to recover, and that time is the real price of a crash."]},
+ cash:{t:"Cash at broker",p:["Deposits minus what you spent on purchases and fees, plus proceeds from sales. It should match the uninvested cash showing in your broker account. If it does not, a transaction is missing or mistyped."]},
+ tob:{t:"TOB, the Belgian transaction tax",p:["Every buy and sell of an ETF in Belgium is taxed at a percentage of the trade amount. For accumulating ETFs registered in Belgium the rate is 0.12%; for non-registered accumulating ETFs it can be 1.32%. Your broker collects it automatically.","Because it is a percentage, buying weekly or monthly costs the same tax. Only a flat broker fee per order makes fewer, larger orders cheaper."]},
+ drift:{t:"Weight, target and drift",p:["Weight is how much of your portfolio an asset represents today. Target is what you decided it should be. Drift is the difference, in percentage points: if the target is 55% and you are at 59%, drift is +4 points.","When drift exceeds your band the asset is flagged. Overweight means it has grown faster than the rest; underweight means it has lagged. Fix it first by directing new deposits, and only sell if deposits cannot close the gap."]},
+ prices:{t:"Live prices",p:["Prices come from Twelve Data's quote feed for the Xetra listing of each fund and refresh while the page is open (interval in Settings, minimum 30 seconds). The free plan allows 8 requests a minute and 800 a day; five funds every 60 seconds uses the daily allowance in about two and a half hours of screen time, after which the app keeps the last prices until the next day. Revolut's price can differ from Xetra by a few cents. For the January check, type Revolut's figures in this tab."]},
+ apikey:{t:"Twelve Data API key",p:["A free key from twelvedata.com identifies your requests. It is stored only in this browser (never in the website's code) and sent only to Twelve Data. If it stops working, log in to Twelve Data and create a new one."]},
+ targets:{t:"Choosing targets",p:["Targets are the mix you want to hold through good and bad markets. They should add up to 100%. Cap-weighted S&P 500 gives full exposure to the largest companies; equal-weight spreads the same 500 companies evenly and reduces dependence on the top ten; emerging markets add China, Taiwan and India; gold tends to hold value when equities fall, especially in credit crises."]},
+ band:{t:"Rebalance band",p:["The number of percentage points an asset may drift from its target before action is needed. 5 is a common choice: wide enough to avoid constant trading and tax, narrow enough to keep risk under control. Vanguard research found annual checks with a 5-point band perform about as well as any other schedule."]},
+ buffer:{t:"Cash buffer",p:["Money kept outside the portfolio, typically six to twelve months of living costs. Its job is to make sure you never have to sell investments during a crash to pay for life. It is what turns a paper loss into something you can simply wait out."]},
+ avgcost:{t:"Average cost",p:["Total amount paid for an asset (including fees and TOB) divided by the units bought. Used to work out unrealised gain and, when you sell, the realised gain that may be taxable in Belgium. This app uses a single average across all buys, which is a simplification; check against your broker statement when filing."]},
+ rebalance:{t:"Why rebalance on a rule",p:["Rebalancing sells what has risen and buys what has fallen, mechanically. It does not raise your expected return; it controls risk. Letting the portfolio drift tends to end in a much larger equity share than you chose, with bigger drawdowns.","Rebalancing with new deposits avoids selling entirely: no transaction tax, no capital gains tax."]},
+ timing:{t:"Selling before a crash",p:["To profit from timing you must be right twice: when to leave and when to return. Most people who exit correctly re-enter too late and miss the sharp early recovery. Missing the ten best days over twenty years roughly halves total return. Regular buying plus a fixed allocation captures most of the protection without the guessing."]},
+ gold:{t:"How gold behaves in a crash",p:["Gold is uncorrelated with stocks rather than the opposite of them. In the first weeks of a panic it often falls too, as investors sell anything liquid. Over the following months it usually recovers and diverges, because crashes bring rate cuts and money creation. Expect it to smooth years, not weeks.","Silver is roughly half industrial demand and tends to fall with stocks in a recession. As a crash hedge, gold does the job and silver mostly does not."]},
+ equalweight:{t:"Equal-weight vs cap-weight",p:["When a concentration bubble bursts, equal-weight has historically won for a long time: after 2000 it recovered by 2003 while the cap-weighted S&P took until 2007. When a few giants lead, cap-weight wins, as since 2015. Holding some of each is a hedge that costs a little in the good scenario and pays in the bad one."]},
+ bubble:{t:"Sector correction or credit crisis",p:["A sector bubble (2000) hurts the overpriced companies and spares the boring ones; broader and equal-weight funds cushion it. A credit crisis (2008) freezes lending and pulls everything down together; only assets outside equities, such as gold, cash and bonds, cushion it.","An AI bust becomes the second kind if the debt behind data centres and chips ends up on bank balance sheets or in hidden vehicles. Watch for banks lending against GPUs, off-balance-sheet financing, and circular deals where each company's revenue is another's spending."]},
+ month:{t:"Which month to rebalance",p:["The research finds no month that is reliably better; calendar effects like 'sell in May' are folklore, not evidence. Pick one date you will actually keep. January has a practical edge for a Belgian investor: the yearly capital gains exemption resets, your broker statements for the previous year are complete, and it keeps the rebalance separate from December's thin, volatile trading.","The app flags the check in your chosen month once at least ten months have passed since the last one, and flags it regardless of month after thirteen months."]},
+ revolut:{t:"Revolut specifics",p:["Revolut gives a monthly allowance of commission-free stock and ETF orders that depends on your plan (Standard 1, Plus 3, Premium 5, Metal and Ultra 10); orders beyond that cost 0.25% with a €1 minimum. Recurring buys of eligible ETFs set up through the investment plan feature carry no commission and no minimum, which suits a monthly routine.","Revolut's investment arm is Lithuanian, so it does not collect the Belgian transaction tax for you. You must declare and pay the TOB yourself (the declaration is due by the end of the second month after the trade) and declare capital gains in your tax return. Keep the fee and TOB columns in this app accurate; they are your record.","Buy the EUR-listed line of each fund where Revolut offers it, so you avoid currency conversion on every order."]},
+ orders:{t:"Max orders per month",p:["How many funds the app will tell you to buy each month. With a small monthly amount, buying only the one or two funds furthest below target keeps orders meaningful and inside your free-trade allowance; over a few months every fund gets its turn. Set it to the number of funds if you prefer to buy everything every month."]},
+ tobfile:{t:"Declaring TOB",p:["Because Revolut's investment arm is not a Belgian intermediary, it does not collect the tax on stock exchange transactions (TOB). You file the declaration and pay it yourself: the deadline is the last working day of the second month after the month of the trade (trades in September are declared and paid by the end of November). The form and payment details are on the FPS Finance website. Keep the fee and TOB record here; the amounts shown are 0.12% of each trade, the rate for Belgian-registered accumulating ETFs. The gold ETC may carry a different rate; check before filing."]},
+ dip:{t:"The buy-the-dip rule",p:["The app records the highest price it has seen for each fund and measures how far the equity slices (gold excluded) have fallen from those peaks, weighted by target. When the fall crosses a tier (default 15%, 25%, 35%), it tells you to invest one extra tranche of the amount you set here, on top of the normal monthly plan, into the funds furthest below target. Each tier fires once per episode; the counter resets once equities are back within 5% of the peak.","How much: only money beyond your cash buffer, and decide the tranche now, while calm. Three tiers exist so you do not spend all your spare cash at −15% and have nothing left at −35%. If your spare savings are irregular, set the tranche to what you could put in three times without touching the buffer.","Peaks are only recorded when the app has seen the price, so a spike between openings may be missed; the rule is deliberately approximate."]},
+ acc:{t:"Accumulating vs distributing",p:["Accumulating ETFs reinvest dividends inside the fund. For a Belgian investor this avoids the 30% withholding tax on distributions and means nothing to reinvest by hand. Irish-domiciled funds are the standard choice for this."]},
+};
+const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
+
+// ---------- state ----------
+const KEY="ledger_v1";
+let mem=null;
+const defaults=()=>({
+ settings:{band:5,tob:0.12,buffer:0,priceDate:new Date().toISOString().slice(0,10),rebalanceMonth:1,lastRebalance:"",monthly:200,maxOrders:5,autoPrices:true,dipTranche:0,dipTiers:[15,25,35],dipFired:[]},
+ assets:[
+  {ticker:"VUAA",name:"Vanguard S&P 500 (Acc)",isin:"IE00BFMXXD54",yahoo:"VUAA:XETR",target:40,price:0},
+  {ticker:"XDEW",name:"Xtrackers S&P 500 Equal Weight (Acc)",isin:"IE00BLNMYC90",yahoo:"XDEW:XETR",target:20,price:0},
+  {ticker:"EXUS",name:"Xtrackers MSCI World ex USA 1C",isin:"IE0006WW1TQ4",yahoo:"EXUS:XETR",target:15,price:0},
+  {ticker:"VFEA",name:"Vanguard FTSE Emerging Markets (Acc)",isin:"IE00BK5BR733",yahoo:"VFEA:XETR",target:15,price:0},
+  {ticker:"IGLN",name:"iShares Physical Gold ETC",isin:"IE00B4ND3602",yahoo:"PPFB:XETR",target:10,price:0}],
+ tx:[]});
+let S=defaults();
+const hasStore=()=>{try{return !!window.localStorage;}catch(e){return false;}};
+async function load(){
+  try{ const v=hasStore()?localStorage.getItem(KEY):mem; if(v) S=JSON.parse(v); }
+  catch(e){}
+  render(); setStatus(hasStore()?"Saved on this device":"No storage available");
+  startPolling();
+}
+let pollTimer=null;
+function startPolling(){
+  if(pollTimer)clearInterval(pollTimer);
+  const go=()=>{ if(document.visibilityState==="visible"&&S.settings.autoPrices!==false&&S.settings.apiKey) fetchPrices(true); };
+  go(); pollTimer=setInterval(go,Math.max(30,S.settings.pollSeconds||60)*1000);
+}
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") startPolling(); });
+async function save(){
+  const v=JSON.stringify(S);
+  try{ if(hasStore()){localStorage.setItem(KEY,v);} else mem=v; setStatus("Saved "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})); }
+  catch(e){ setStatus("Could not save"); }
+  render();
+}
+function setStatus(t){document.getElementById("saved").textContent=t;}
+
+// ---------- calculations ----------
+const eur=n=>(n<0?"-":"")+"€"+Math.abs(n).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
+const eur0=n=>(n<0?"-":"+")+"€"+Math.abs(n).toLocaleString("en-GB",{maximumFractionDigits:0});
+function tob(t){return (t.type==="Buy"||t.type==="Sell")?Math.round(t.units*t.price*S.settings.tob)/100:0;}
+function gross(t){return (t.type==="Buy"||t.type==="Sell")?t.units*t.price:t.amount;}
+function cashEffect(t){const g=gross(t),f=t.fee||0,x=tob(t);
+  return t.type==="Deposit"?g:t.type==="Buy"?-(g+f+x):t.type==="Sell"?g-f-x:-g;}
+function calc(){
+  const out={deposits:0,withdrawals:0,cash:0,fees:0,holdings:[]};
+  for(const t of S.tx){ if(t.type==="Deposit")out.deposits+=t.amount; if(t.type==="Withdrawal")out.withdrawals+=t.amount; out.cash+=cashEffect(t); if(t.type==="Fee")out.fees+=t.amount; out.fees+=(t.fee||0)+tob(t); }
+  let invested=0;
+  for(const a of S.assets){
+    let units=0,cost=0,unitsBought=0,sellProceeds=0,unitsSold=0;
+    for(const t of S.tx){ if(t.ticker!==a.ticker)continue;
+      if(t.type==="Buy"){units+=t.units;unitsBought+=t.units;cost+=t.units*t.price+(t.fee||0)+tob(t);}
+      if(t.type==="Sell"){units-=t.units;unitsSold+=t.units;sellProceeds+=t.units*t.price-(t.fee||0)-tob(t);} }
+    const avg=unitsBought?cost/unitsBought:0, value=units*(a.price||0);
+    invested+=value;
+    out.holdings.push({a,units,avg,cost:units*avg,value,unreal:value-units*avg,real:sellProceeds-unitsSold*avg});
+  }
+  out.invested=invested; out.total=invested+out.cash;
+  for(const h of out.holdings){ h.weight=invested?h.value/invested*100:0; h.drift=h.weight-h.a.target; h.action=h.a.target/100*invested-h.value; }
+  return out;
+}
+
+// ---------- render ----------
+function render(){
+  const c=calc(), band=S.settings.band;
+  document.getElementById("h-total").textContent=eur(c.total);
+  document.getElementById("h-contrib").textContent=eur(c.deposits-c.withdrawals);
+  const g=c.total-(c.deposits-c.withdrawals); const ge=document.getElementById("h-gain"); ge.textContent=eur(g); ge.className="v "+(g<0?"neg":g>0?"pos":"");
+  document.getElementById("h-cash").textContent=eur(c.cash);
+  document.getElementById("h-fees").textContent=eur(c.fees);
+  document.getElementById("pricedate").textContent=S.assets.some(a=>a.price>0)?"Valued at prices from "+S.settings.priceDate+(S.settings.autoPrices!==false?" · "+(S.settings.priceNotes||"")+" · Xetra quotes via Twelve Data; Revolut's venue may differ by cents.":". Update them in Prices."):"Prices will be fetched automatically; or enter them in the Prices tab.";
+  // annual alarm
+  const al=document.getElementById("alarm"); const now=new Date(); const rm=S.settings.rebalanceMonth||1;
+  const last=S.settings.lastRebalance?new Date(S.settings.lastRebalance):null;
+  const monthsSince=last?(now.getFullYear()-last.getFullYear())*12+now.getMonth()-last.getMonth():99;
+  const inWindow=now.getMonth()+1===rm;
+  if(c.invested&&((inWindow&&monthsSince>=10)||monthsSince>=13)){
+    al.style.display="";
+    al.innerHTML=`<strong>Annual rebalance check due.</strong> ${last?`Last done ${S.settings.lastRebalance}.`:"No rebalance recorded yet."} Review the drift below, act only where the band is breached, then <button class="del" id="mark-reb" style="color:var(--ink);text-decoration:underline">mark it done for ${now.toISOString().slice(0,10)}</button>.`;
+  } else al.style.display="none";
+  // dip rule: weighted drawdown of fund prices from their recorded peaks
+  let dd=null;
+  if(S.assets.every(a=>a.price>0)){
+    for(const a of S.assets){ if(!a.peak||a.price>a.peak){a.peak=a.price;a.peakDate=S.settings.priceDate;} }
+    const eq=S.assets.filter(a=>!/gold/i.test(a.name)); const tsum=eq.reduce((x,a)=>x+a.target,0);
+    dd=eq.reduce((x,a)=>x+a.target/tsum*(a.price/a.peak-1),0)*100; // negative number, equities only
+    const tiers=S.settings.dipTiers||[15,25,35]; S.settings.dipFired=S.settings.dipFired||[];
+    if(dd>-5&&S.settings.dipFired.length){S.settings.dipFired=[];} // episode over: reset
+    const active=tiers.filter(t=>dd<=-t), pending=active.filter(t=>!S.settings.dipFired.includes(t));
+    const dp=document.getElementById("dip");
+    if(active.length){ dp.style.display="";
+      const T=S.settings.dipTranche||0;
+      dp.innerHTML=`<strong>Buy-the-dip rule: equities are ${Math.abs(dd).toFixed(1)}% below their peak.</strong> Tiers reached: ${active.map(t=>"−"+t+"%").join(", ")}. `+
+        (pending.length?`Extra tranche due: <strong>${T?eur(T*pending.length):"amount not set (Settings)"}</strong>${pending.length>1?" ("+pending.length+" tiers)":""}, from spare money outside your buffer, spread across the funds furthest below target. Keep the normal €${S.settings.monthly||0} going. <button class="del" id="dip-done" style="color:var(--ink);text-decoration:underline">Mark tranche invested</button>`:`All reached tiers already acted on. Nothing more until the next tier or the recovery.`);
+    } else { dp.style.display="none"; if(dd<=-10){dp.style.display="";dp.style.background="var(--white)";dp.innerHTML=`<span class="muted">Equities ${Math.abs(dd).toFixed(1)}% below peak; first dip tier at −${tiers[0]}%.</span>`;} else dp.style.background="var(--pale-green)"; }
+  }
+  // this month's plan
+  const n=document.getElementById("next"); const D=S.settings.monthly||0; const maxN=S.settings.maxOrders||2;
+  if(!c.invested&&!D){ n.innerHTML="<strong>Start here.</strong> Set your monthly amount in Settings, add your first deposit under Transactions, then enter prices."; }
+  else if(!S.assets.every(a=>a.price>0)){ n.innerHTML="<strong>Enter a price for every fund</strong> in Prices (or tap Fetch) and the plan for this month will appear here."; }
+  else{
+    const future=c.invested+D;
+    const gaps=c.holdings.map(h=>({h,gap:h.a.target/100*future-h.value})).sort((a,b)=>b.gap-a.gap);
+    let picks=gaps.filter(g=>g.gap>0).slice(0,maxN); let tot=picks.reduce((s,g)=>s+g.gap,0);
+    let plan;
+    if(!picks.length||tot<=0){ picks=gaps.slice(0,maxN); tot=picks.reduce((s,g)=>s+g.h.a.target,0); plan=picks.map(g=>({h:g.h,amt:D*g.h.a.target/tot})); }
+    else plan=picks.map(g=>({h:g.h,amt:D*Math.min(1,g.gap/tot)}));
+    const rows=plan.map(p=>`<tr><td><strong>${p.h.a.ticker}</strong> <span class="muted">${p.h.drift>=0?"+":""}${p.h.drift.toFixed(1)} pts</span></td><td class="n">${eur(p.amt)}</td><td class="n">${(p.amt/p.h.a.price).toFixed(4)} units</td><td class="n muted">TOB ${eur(Math.round(p.amt*S.settings.tob)/100)}</td></tr>`).join("");
+    const flagged=c.holdings.filter(h=>Math.abs(h.drift)>band);
+    // Revolut recurring-plan amounts: target weights tilted by drift (5 pts under -> x1.5, 5 pts over -> x0.5), normalised to D
+    const tw=c.holdings.map(h=>{const f=Math.min(1.5,Math.max(0.5,1-h.drift/(2*band)));return h.a.target*f;}); const tws=tw.reduce((x,y)=>x+y,0);
+    const planAmts=c.holdings.map((h,i)=>({h,amt:D*tw[i]/tws,base:D*h.a.target/100}));
+    const planRows=planAmts.map(p=>{const diff=p.amt-p.base;const arrow=Math.abs(diff)<0.5?"=":diff>0?"▲":"▼";return `<tr><td><strong>${p.h.a.ticker}</strong></td><td class="n">${eur(p.amt)}</td><td class="muted">${arrow} ${arrow==="="?"unchanged":(diff>0?"+":"")+eur0(diff).replace("+","+")+" vs base "+eur(p.base)}</td></tr>`;}).join("");
+    const planNote=planAmts.some(p=>Math.abs(p.amt-p.base)>=0.5)?"Set these amounts in the Revolut plan for the next few months, then return to the base split.":"Keep the Revolut plan at the base split; nothing is drifting.";
+    n.innerHTML=`<strong>This month: invest ${eur(D)} like this.</strong><table style="margin:8px 0 4px">${rows}</table><div style="margin-top:8px"><strong>Revolut plan amounts (all five, tilted):</strong><table style="margin:4px 0">${planRows}</table><span class="muted">${planNote}</span></div><span class="muted">Above the plan: if you place orders by hand instead, buys go to the ${plan.length>1?plan.length+" funds":"fund"} furthest below target at today's prices, so the portfolio moves back toward ${S.assets.map(a=>a.target).join("/")} without selling anything.${flagged.length?` Note: ${flagged.map(h=>h.a.ticker).join(", ")} outside the ${band}-point band; keep buying the laggards and act on it at the ${["January","February","March","April","May","June","July","August","September","October","November","December"][(S.settings.rebalanceMonth||1)-1]} check.`:" No slice is outside the band; nothing to sell."}</span>`;
+  }
+  // annual plan inside alarm (if due)
+  if(al.style.display!=="none"&&c.invested){
+    const over=c.holdings.filter(h=>h.drift>band), under=c.holdings.filter(h=>h.drift<-band);
+    if(over.length||under.length){
+      const sells=over.map(h=>`sell ${eur0(h.value-h.a.target/100*c.invested).replace("+","")} of ${h.a.ticker}`);
+      const buys=c.holdings.filter(h=>h.drift<0).sort((a,b)=>a.drift-b.drift).slice(0,3).map(h=>`buy ${h.a.ticker} (${eur0(h.a.target/100*c.invested-h.value)} short)`);
+      al.innerHTML+=`<div style="margin-top:6px"><strong>Plan:</strong> ${sells.length?sells.join(", ")+"; then "+buys.join(", ")+".":"Nothing is overweight; just keep steering deposits to "+buys.join(", ")+"."} Selling triggers TOB and possibly capital gains tax; if deposits can close the gap within a few months, prefer that.</div>`;
+    } else al.innerHTML+=`<div style="margin-top:6px"><strong>Plan:</strong> everything is within ${band} points. No trades needed; mark it done.</div>`;
+  }
+  // TOB due
+  const td=document.getElementById("tobdue"); const byMonth={};
+  for(const t of S.tx){ const x=tob(t); if(!x)continue; const k=t.date.slice(0,7); byMonth[k]=(byMonth[k]||0)+x; }
+  const due=Object.keys(byMonth).sort().map(k=>{const [y,m]=k.split("-").map(Number); const dl=new Date(y,m+1,0); return {k,amt:byMonth[k],dl};}).filter(d=>d.dl>=new Date(now.getFullYear(),now.getMonth(),1));
+  if(due.length){ td.style.display=""; td.innerHTML=`<strong>TOB to declare yourself (Revolut does not).</strong> `+due.map(d=>`${eur(d.amt)} from ${d.k} trades, due by ${d.dl.toISOString().slice(0,10)}`).join("; ")+`. <button class="info" data-info="tobfile">i</button>`; } else td.style.display="none";
+  // holdings
+  const hl=document.getElementById("holdings");
+  hl.innerHTML=c.holdings.map(h=>{const st=Math.abs(h.drift)>band?(h.drift>0?["over","Overweight"]:["under","Underweight"]):["ok","On target"];
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--rule)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><div><strong>${h.a.ticker}</strong> <span class="muted">${h.a.name}</span></div><span class="tag ${st[0]}">${st[1]}</span></div>
+      <div class="bar"><i style="width:${Math.min(100,h.weight)}%"></i><b style="left:${h.a.target}%"></b></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:6px;flex-wrap:wrap;gap:4px 12px">
+        <span>${h.weight.toFixed(1)}% now, target ${h.a.target}% (${h.drift>=0?"+":""}${h.drift.toFixed(1)} pts)</span>
+        <span>${eur(h.value)} <span class="muted">${h.units.toLocaleString("en-GB",{maximumFractionDigits:4})} units</span></span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;flex-wrap:wrap;gap:4px 12px" class="muted">
+        <span>Avg cost ${eur(h.avg)} <button class="info" data-info="avgcost">i</button></span>
+        <span class="${h.unreal<0?"neg":h.unreal>0?"pos":""}">${h.unreal>=0?"+":""}${eur(h.unreal)}${h.real?` · realised ${eur(h.real)}`:""}</span>
+        <span>To target: ${eur0(h.action)}</span></div></div>`;}).join("");
+  // transactions
+  const tl=document.getElementById("txlist"); const sorted=S.tx.map((t,i)=>({...t,i})).sort((a,b)=>b.date.localeCompare(a.date)||b.i-a.i);
+  tl.innerHTML=sorted.length?`<table><tr><th>Date</th><th>What</th><th class="n">Cash</th><th></th></tr>`+sorted.map(t=>`<tr><td>${t.date}</td><td>${t.type}${t.ticker?" "+t.ticker:""}${t.type==="Buy"||t.type==="Sell"?`<div class="muted">${t.units} × ${eur(t.price)}${(t.fee||tob(t))?`, fee ${eur(t.fee||0)}, TOB ${eur(tob(t))}`:""}</div>`:""}${t.note?`<div class="muted">${t.note}</div>`:""}</td><td class="n">${eur(cashEffect(t))}</td><td><button class="del" data-del="${t.i}">Delete</button></td></tr>`).join("")+"</table>":`<div class="empty">No transactions yet. Add your first deposit above.</div>`;
+  // prices
+  document.getElementById("pr-date").value=S.settings.priceDate;
+  document.getElementById("pricelist").innerHTML=S.assets.map((a,i)=>`<div class="row"><div><label>${a.ticker}</label><div class="muted" style="padding-top:8px">${a.name}</div></div><div><label>Price (€)</label><input type="number" step="any" inputmode="decimal" data-price="${i}" value="${a.price||""}"></div></div>`).join("");
+  // settings
+  const sum=S.assets.reduce((s,a)=>s+Number(a.target||0),0);
+  document.getElementById("assetlist").innerHTML=S.assets.map((a,i)=>`<div class="row" style="grid-template-columns:1fr 110px 90px 80px 60px;align-items:end"><div><label>${a.ticker}</label><input data-name="${i}" value="${a.name}"></div><div><label>ISIN</label><input data-isin="${i}" value="${a.isin||""}"></div><div><label>Data symbol</label><input data-yahoo="${i}" value="${a.yahoo||a.ticker+":XETR"}"></div><div><label>Target %</label><input type="number" step="any" inputmode="decimal" data-target="${i}" value="${a.target}"></div><div><button class="del" data-delasset="${i}" style="padding-bottom:10px">Remove</button></div></div>`).join("");
+  document.getElementById("targetsum").textContent=`Targets add up to ${sum}%`+(Math.abs(sum-100)>0.01?" (should be 100%)":"");
+  document.getElementById("s-band").value=S.settings.band; document.getElementById("s-tob").value=S.settings.tob; document.getElementById("s-buffer").value=S.settings.buffer; document.getElementById("s-month").value=S.settings.rebalanceMonth||1; document.getElementById("s-dip").value=S.settings.dipTranche||0; document.getElementById("s-tiers").value=(S.settings.dipTiers||[15,25,35]).join(","); document.getElementById("s-monthly").value=S.settings.monthly||0; document.getElementById("s-auto").value=S.settings.autoPrices===false?"0":"1"; document.getElementById("s-key").value=S.settings.apiKey||""; document.getElementById("s-poll").value=S.settings.pollSeconds||60; document.getElementById("s-orders").value=S.settings.maxOrders||2; document.getElementById("s-last").value=S.settings.lastRebalance||"";
+  const sel=document.getElementById("t-ticker"); const cur=sel.value; sel.innerHTML=S.assets.map(a=>`<option>${a.ticker}</option>`).join(""); if(cur)sel.value=cur;
+  document.getElementById("learnlist").innerHTML=LEARN_ORDER.map(k=>`<button class="item" data-info="${k}">${INFO[k].t}</button>`).join("");
+  preview();
+}
+function preview(){
+  const t=readForm(); if(!t){document.getElementById("t-preview").textContent="";return;}
+  const x=tob(t), ce=cashEffect(t);
+  document.getElementById("t-preview").textContent=(t.type==="Buy"||t.type==="Sell")?`${t.units} × ${eur(t.price)} = ${eur(gross(t))}. TOB ${eur(x)} at ${S.settings.tob}%, fee ${eur(t.fee||0)}. Cash effect ${eur(ce)}.`:`Cash effect ${eur(ce)}.`;
+}
+function readForm(){
+  const type=document.getElementById("t-type").value, date=document.getElementById("t-date").value; if(!date)return null;
+  if(type==="Buy"||type==="Sell"){const units=+document.getElementById("t-units").value, price=+document.getElementById("t-price").value; if(!(units>0&&price>0))return null;
+    return {date,type,ticker:document.getElementById("t-ticker").value,units,price,fee:+document.getElementById("t-fee").value||0,note:document.getElementById("t-note").value};}
+  const amount=+document.getElementById("t-amount").value; if(!(amount>0))return null;
+  return {date,type,amount,note:document.getElementById("t-note").value};
+}
+
+// ---------- price lookup via web search ----------
+async function fetchPrices(auto){
+  const st=document.getElementById("pr-status"), btn=document.getElementById("pr-fetch");
+  const key=S.settings.apiKey; if(!key){ st.textContent="Add your Twelve Data API key in Settings to enable live prices."; return; }
+  btn.disabled=true; if(!auto)st.textContent="Fetching…";
+  const sym=a=>a.yahoo||(a.ticker+":XETR");
+  const one=async a=>{
+    const [symbol,exchange]=sym(a).split(":");
+    const url=`https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}${exchange?"&exchange="+encodeURIComponent(exchange):""}&apikey=${encodeURIComponent(key)}`;
+    try{ const r=await fetch(url); const j=await r.json();
+      if(j.status==="error"||j.code) return {ok:false,note:j.message||"error"};
+      const price=Number(j.close||j.price); if(!(price>0)) return {ok:false,note:"no price"};
+      const ts=j.datetime||""; const cur=j.currency||"";
+      return {ok:true,price,ts,cur,open:j.is_market_open};
+    }catch(e){ return {ok:false,note:e.message}; }
+  };
+  const res=await Promise.all(S.assets.map(one));
+  let filled=0, notes=[];
+  res.forEach((p,i)=>{ if(p.ok){ let v=p.price; if(p.cur&&p.cur!=="EUR") notes.push(`${S.assets[i].ticker}: quoted in ${p.cur}, not converted`);
+      v=Math.round(v*100)/100; if(auto){S.assets[i].price=v;} else {const inp=document.querySelector(`[data-price="${i}"]`); if(inp)inp.value=v.toFixed(2);} filled++; }
+    else notes.push(`${S.assets[i].ticker}: ${p.note}`); });
+  const now=new Date();
+  if(auto&&filled){ S.settings.priceDate=now.toISOString().slice(0,10); S.settings.priceNotes=(res.find(p=>p.ok)?.open?"market open":"market closed, last close")+(notes.length?" · "+notes.join(" · "):""); S.settings.lastAuto=now.toISOString(); try{ if(hasStore())localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} render(); setStatus("Live · "+now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"})); }
+  else if(auto) setStatus("Price update failed; using saved prices");
+  st.textContent=(filled?`${auto?"Updated":"Filled"} ${filled} of ${S.assets.length}. `:"No prices received. ")+notes.join(" · ");
+  btn.disabled=false;
+}
+
+// ---------- events ----------
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  if(b.dataset.tab){document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("on",p.id==="p-"+b.dataset.tab));window.scrollTo(0,0);}
+  if(b.dataset.info){const k=INFO[b.dataset.info];document.getElementById("sheetcard").innerHTML=`<h3>${k.t}</h3>`+k.p.map(p=>`<p>${p}</p>`).join("")+`<div class="actions"><button class="btn quiet" id="close">Close</button></div>`;document.getElementById("sheet").classList.add("on");}
+  if(b.id==="close")document.getElementById("sheet").classList.remove("on");
+  if(b.id==="dip-done"){const tiers=S.settings.dipTiers||[15,25,35];S.settings.dipFired=Array.from(new Set([...(S.settings.dipFired||[]),...tiers.filter(t=>{const eq=S.assets.filter(a=>!/gold/i.test(a.name));const ts=eq.reduce((x,a)=>x+a.target,0);const d=eq.reduce((x,a)=>x+a.target/ts*(a.price/(a.peak||a.price)-1),0)*100;return d<=-t;})]));await save();setStatus("Tranche recorded");}
+  if(b.id==="mark-reb"){S.settings.lastRebalance=new Date().toISOString().slice(0,10);await save();setStatus("Rebalance recorded");}
+  if(b.dataset.del!==undefined){S.tx.splice(+b.dataset.del,1);await save();}
+  if(b.dataset.delasset!==undefined){if(confirm("Remove this asset from targets? Its transactions stay in history."))S.assets.splice(+b.dataset.delasset,1),await save();}
+  if(b.id==="t-add"){const t=readForm(); if(!t){alert("Fill in date and amounts first.");return;} S.tx.push(t); ["t-units","t-price","t-amount","t-note"].forEach(id=>document.getElementById(id).value=""); await save(); setStatus("Transaction added");}
+  if(b.id==="pr-fetch"){await fetchPrices(false);}
+  if(b.id==="pr-save"){document.querySelectorAll("[data-price]").forEach(i=>S.assets[+i.dataset.price].price=+i.value||0);S.settings.priceDate=document.getElementById("pr-date").value;await save();}
+  if(b.id==="s-save"){const hadKey=!!S.settings.apiKey;document.querySelectorAll("[data-name]").forEach(i=>S.assets[+i.dataset.name].name=i.value);document.querySelectorAll("[data-isin]").forEach(i=>S.assets[+i.dataset.isin].isin=i.value.trim().toUpperCase());document.querySelectorAll("[data-yahoo]").forEach(i=>S.assets[+i.dataset.yahoo].yahoo=i.value.trim().toUpperCase());document.querySelectorAll("[data-target]").forEach(i=>S.assets[+i.dataset.target].target=+i.value||0);
+    S.settings.band=+document.getElementById("s-band").value||5;S.settings.tob=+document.getElementById("s-tob").value||0;S.settings.buffer=+document.getElementById("s-buffer").value||0;S.settings.rebalanceMonth=+document.getElementById("s-month").value||1;S.settings.dipTranche=+document.getElementById("s-dip").value||0;S.settings.dipTiers=document.getElementById("s-tiers").value.split(",").map(x=>+x.trim()).filter(x=>x>0).sort((a,b)=>a-b);if(!S.settings.dipTiers.length)S.settings.dipTiers=[15,25,35];S.settings.monthly=+document.getElementById("s-monthly").value||0;S.settings.autoPrices=document.getElementById("s-auto").value==="1";S.settings.apiKey=document.getElementById("s-key").value.trim();S.settings.pollSeconds=Math.max(30,+document.getElementById("s-poll").value||60);S.settings.maxOrders=Math.max(1,+document.getElementById("s-orders").value||2);S.settings.lastRebalance=document.getElementById("s-last").value||"";await save();}
+  if(b.id==="a-add"){const tk=document.getElementById("a-ticker").value.trim().toUpperCase(); if(!tk)return; S.assets.push({ticker:tk,name:document.getElementById("a-name").value,isin:document.getElementById("a-isin").value.trim().toUpperCase(),target:+document.getElementById("a-target").value||0,price:0}); ["a-ticker","a-name","a-isin","a-target"].forEach(id=>document.getElementById(id).value=""); await save();}
+  if(b.id==="d-export"){try{await navigator.clipboard.writeText(JSON.stringify(S));setStatus("Backup copied");}catch(x){prompt("Copy this text:",JSON.stringify(S));}}
+  if(b.id==="d-import"){const v=prompt("Paste your backup:"); if(!v)return; try{const o=JSON.parse(v); if(o.assets&&o.tx){S=o;await save();}else alert("That does not look like a backup.");}catch(x){alert("Could not read that backup.");}}
+  if(b.id==="d-reset"){if(confirm("Delete all transactions, prices and settings?")){S=defaults();await save();}}
+});
+document.getElementById("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")e.target.classList.remove("on");});
+document.getElementById("t-type").addEventListener("change",e=>{const trade=e.target.value==="Buy"||e.target.value==="Sell";document.getElementById("trade-fields").style.display=trade?"":"none";document.getElementById("trade-fields2").style.display=trade?"":"none";document.getElementById("cash-fields").style.display=trade?"none":"";preview();});
+["t-units","t-price","t-fee","t-amount","t-date","t-ticker"].forEach(id=>document.getElementById(id).addEventListener("input",preview));
+document.getElementById("t-date").value=new Date().toISOString().slice(0,10);
+load();
+</script>
+</body>
+</html>
