@@ -19,7 +19,7 @@ h1,h2{font-family:Fraunces,Georgia,serif;font-weight:600;margin:0;letter-spacing
 h1{font-size:26px;line-height:1.1;color:var(--ink)}
 h2{font-size:18px;margin:26px 0 10px;display:flex;align-items:center;gap:6px}
 button{font:inherit;cursor:pointer}
-.wrap{max-width:720px;margin:0 auto;padding:0 16px 96px}
+.wrap{max-width:720px;margin:0 auto;padding:calc(8px + env(safe-area-inset-top)) 16px 96px}
 .top{background:var(--card);margin:14px 0 0;padding:18px 16px 20px;border-radius:16px;box-shadow:var(--shadow);color:var(--ink)}
 .top .topbar{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:2px}
 .top small{color:var(--ink2);font-size:12px}
@@ -49,6 +49,10 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .next{margin:12px 0;padding:14px 16px;background:var(--card);border-left:4px solid var(--gold);border-radius:12px;box-shadow:var(--shadow)}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .row.one{grid-template-columns:1fr}
+.assetrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.assetrow .full{grid-column:1/-1}
+.assetrow input{min-width:0}
+@media(min-width:700px){.assetrow{grid-template-columns:repeat(4,minmax(0,1fr))}}
 label{display:block;font-size:12px;color:var(--ink2);margin-bottom:4px;font-weight:500}
 input,select{width:100%;padding:11px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--white);font:inherit;color:var(--ink)}
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
@@ -216,6 +220,7 @@ const INFO = {
  orders:{t:"Max orders per month",p:["How many funds the app will tell you to buy each month. With a small monthly amount, buying only the one or two funds furthest below target keeps orders meaningful and inside your free-trade allowance; over a few months every fund gets its turn. Set it to the number of funds if you prefer to buy everything every month."]},
  tobfile:{t:"Declaring TOB",p:["Because Revolut's investment arm is not a Belgian intermediary, it does not collect the tax on stock exchange transactions (TOB). You file the declaration and pay it yourself: the deadline is the last working day of the second month after the month of the trade (trades in September are declared and paid by the end of November). The form and payment details are on the FPS Finance website. Keep the fee and TOB record here; the amounts shown are 0.12% of each trade, the rate for Belgian-registered accumulating ETFs. The gold ETC may carry a different rate; check before filing."]},
  dip:{t:"The buy-the-dip rule",p:["The app records the highest price it has seen for each fund and measures how far the equity slices (gold excluded) have fallen from those peaks, weighted by target. When the fall crosses a tier (default 15%, 25%, 35%), it tells you to invest one extra tranche of the amount you set here, on top of the normal monthly plan, into the funds furthest below target. Each tier fires once per episode; the counter resets once equities are back within 5% of the peak.","How much: only money beyond your cash buffer, and decide the tranche now, while calm. Three tiers exist so you do not spend all your spare cash at −15% and have nothing left at −35%. If your spare savings are irregular, set the tranche to what you could put in three times without touching the buffer.","Peaks are only recorded when the app has seen the price, so a spike between openings may be missed; the rule is deliberately approximate."]},
+ twin:{t:"US twin",p:["Free market data does not cover European listings, so each fund is tracked through a US-listed fund holding the same index: VOO for an S&P 500 fund, RSP for equal weight, VEA for developed ex-US, VWO for emerging markets, GLD for gold. The app scales the twin's moves onto the EUR price you entered. If you add a fund, put its twin here or the charts stay empty."]},
  schedule:{t:"Buy months",p:["Leave blank for funds bought monthly through the Revolut plan. For a fund bought at another broker with a fixed fee per order, enter the months you buy in (for example 3,9 for March and September). The app then removes that fund from the monthly Revolut split, tells you how much to set aside each month, and in those months shows how much has accumulated since the last purchase."]},
  sync:{t:"Sync between devices",p:["Your data is saved in a private file (a 'gist') on your own GitHub account, encrypted with a passphrase before it leaves the device, so GitHub only ever stores scrambled text. Each device that has the token and the same passphrase reads and writes the same file; the newest copy wins.","To create the token: GitHub → your profile picture → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token. Name it 'ledger sync', set expiration to one year, leave repository access on 'Public repositories (read-only)', and under Account permissions set Gists to 'Read and write'. Copy the token once; GitHub will not show it again.","The token and passphrase stay on each device and are never uploaded. If you lose the passphrase the cloud copy cannot be read; your device copy still works and will re-upload."]},
  perf:{t:"Performance",p:["Once price history is downloaded (Funds tab), the chart and the table are rebuilt from your actual transactions valued at each day's prices, so they go back to your first purchase. Without it, they use the daily snapshots the app takes from installation onwards.","The app records the portfolio's total value once a day. Each row shows what it was worth on the nearest recorded day for that period, and the change in euros and percent to today's value. The last column shows how much of that change is money you deposited in the meantime, so you can tell growth from contributions at a glance. Periods longer than the recorded history show the date recording began."]},
@@ -243,6 +248,7 @@ const hasStore=()=>{try{return !!window.localStorage;}catch(e){return false;}};
 async function load(){
   try{ const v=hasStore()?localStorage.getItem(KEY):mem; if(v) S=JSON.parse(v); }
   catch(e){}
+  if(fillProxies()){ try{ if(hasStore())localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
   render(); setStatus(hasStore()?"Saved on this device":"No storage available");
   await pullCloud(!S.tx||!S.tx.length);
   startPolling();
@@ -316,8 +322,10 @@ async function fetchHistory(){
   const key=S.settings.apiKey; const st=document.getElementById("hist-status");
   const say=t=>{ if(st)st.textContent=t; };
   if(!key){ say("Add your Twelve Data key in Settings first."); return; }
+  fillProxies();
+  const noProxy=S.assets.filter(a=>!a.proxy).map(a=>a.ticker), noPrice=S.assets.filter(a=>a.proxy&&!(a.price>0)).map(a=>a.ticker);
   const withP=S.assets.filter(a=>a.proxy&&a.price>0);
-  if(!withP.length){ say("Enter a current price for each fund in Prices first; history is scaled to it."); return; }
+  if(!withP.length){ say((noProxy.length?"No US twin set for "+noProxy.join(", ")+" (Settings). ":"")+(noPrice.length?"No current price for "+noPrice.join(", ")+" (Prices tab).":"")); return; }
   say("Downloading daily history…");
   try{
     const fxRaw=await tdSeries("EUR/USD",key); const fx={}; fxRaw.forEach(x=>fx[x.d]=x.c);
@@ -489,7 +497,15 @@ function render(){
   document.getElementById("pricelist").innerHTML=S.assets.map((a,i)=>`<div class="row"><div><label>${a.ticker}</label><div class="muted" style="padding-top:8px">${a.name}</div></div><div><label>Price (€)</label><input type="text" inputmode="decimal" data-price="${i}" value="${a.price||""}"></div></div>`).join("");
   // settings
   const sum=S.assets.reduce((s,a)=>s+Number(a.target||0),0);
-  document.getElementById("assetlist").innerHTML=S.assets.map((a,i)=>`<div class="row" style="grid-template-columns:1fr 100px 70px 80px 90px 80px 60px;align-items:end"><div><label>${a.ticker}</label><input data-name="${i}" value="${a.name}"></div><div><label>ISIN</label><input data-isin="${i}" value="${a.isin||""}"></div><div><label>US twin</label><input data-yahoo="${i}" value="${a.proxy||""}"></div><div><label>Broker</label><input data-broker="${i}" value="${a.broker||"Revolut"}"></div><div><label>Buy months (blank = monthly)</label><input data-buym="${i}" value="${a.buyMonths||""}" placeholder="e.g. 3,9"></div><div><label>Target %</label><input type="text" inputmode="decimal" data-target="${i}" value="${a.target}"></div><div><button class="del" data-delasset="${i}" style="padding-bottom:10px">Remove</button></div></div>`).join("");
+  document.getElementById("assetlist").innerHTML=S.assets.map((a,i)=>`<div class="assetrow">
+      <div class="full" style="display:flex;justify-content:space-between;align-items:baseline"><strong>${a.ticker}</strong><button class="del" data-delasset="${i}">Remove</button></div>
+      <div class="full"><label>Name</label><input data-name="${i}" value="${a.name}"></div>
+      <div><label>ISIN</label><input data-isin="${i}" value="${a.isin||""}"></div>
+      <div><label>US twin <button class="info" data-info="twin">i</button></label><input data-yahoo="${i}" value="${a.proxy||""}" placeholder="${PROXY[a.ticker]||PROXY[a.isin]||"e.g. VOO"}"></div>
+      <div><label>Broker</label><input data-broker="${i}" value="${a.broker||"Revolut"}"></div>
+      <div><label>Buy months</label><input data-buym="${i}" value="${a.buyMonths||""}" placeholder="blank = monthly"></div>
+      <div><label>Target %</label><input type="text" inputmode="decimal" data-target="${i}" value="${a.target}"></div>
+    </div>`).join("");
   document.getElementById("targetsum").textContent=`Targets add up to ${sum}%`+(Math.abs(sum-100)>0.01?" (should be 100%)":"");
   document.getElementById("s-band").value=S.settings.band; document.getElementById("s-tob").value=S.settings.tob; document.getElementById("s-buffer").value=S.settings.buffer; document.getElementById("s-month").value=S.settings.rebalanceMonth||1; document.getElementById("s-dip").value=S.settings.dipTranche||0; document.getElementById("s-tiers").value=(S.settings.dipTiers||[15,25,35]).join(","); document.getElementById("s-monthly").value=S.settings.monthly||0; document.getElementById("s-auto").value=S.settings.autoPrices===false?"0":"1"; document.getElementById("s-key").value=S.settings.apiKey||""; document.getElementById("s-gh").value=S.settings.ghToken||""; document.getElementById("s-pass").value=S.settings.syncPass||""; document.getElementById("s-poll").value=S.settings.pollSeconds||90; document.getElementById("s-orders").value=S.settings.maxOrders||2; document.getElementById("s-last").value=S.settings.lastRebalance||"";
   const sel=document.getElementById("t-ticker"); const cur=sel.value; sel.innerHTML=S.assets.map(a=>`<option>${a.ticker}</option>`).join(""); if(cur)sel.value=cur;
@@ -498,7 +514,10 @@ function render(){
   preview();
 }
 const FUNDCOL=["#2563EB","#7C3AED","#0891B2","#059669","#C8962E","#DB2777"];
-const TER={VUAA:0.07,XDEW:0.20,EXUS:0.15,VFEA:0.17,PPFB:0.12};
+const TER={VUAA:0.07,XDEW:0.20,EXUS:0.15,VFEA:0.17,PPFB:0.12,IGLN:0.12,SGLN:0.12};
+const PROXY={VUAA:"VOO",VUSA:"VOO",CSPX:"VOO",SXR8:"VOO",XDEW:"RSP",SPEQ:"RSP",EXUS:"VEA",IWDA:"URTH",VWCE:"VT",VFEA:"VWO",VFEM:"VWO",EIMI:"IEMG",PPFB:"GLD",IGLN:"GLD",SGLN:"GLD","8PSG":"GLD",SGLD:"GLD",VGEA:"BNDX",
+ "IE00BFMXXD54":"VOO","IE00BLNMYC90":"RSP","IE0006WW1TQ4":"VEA","IE00BK5BR733":"VWO","IE00B4ND3602":"GLD","IE00B579F325":"GLD"};
+function fillProxies(){ let changed=false; for(const a of S.assets){ if(!a.proxy){ const g=PROXY[a.ticker]||PROXY[(a.isin||"").toUpperCase()]; if(g){a.proxy=g;changed=true;} } } return changed; }
 function spark(vals,color,W=680,Hh=90){
   if(vals.length<2) return "";
   const pad=6, lo=Math.min(...vals), hi=Math.max(...vals), span=(hi-lo)||1;
@@ -561,7 +580,8 @@ function renderFunds(c){
   c.holdings.map(h=>{
     const raw=(hist&&hist.series&&hist.series[h.a.ticker])||[];
     const ser=raw.filter(x=>x.d>=cutDate).map(x=>({d:x.d,x:x.p}));
-    const chart=ser.length>=2?spark(ser.map(x=>x.x),FUNDCOL[c.holdings.indexOf(h)%FUNDCOL.length]):`<p class="muted">No history for this fund yet.</p>`;
+    const why=!h.a.proxy?"no US twin set in Settings":!(h.a.price>0)?"no current price yet":"tap Update history";
+    const chart=ser.length>=2?spark(ser.map(x=>x.x),FUNDCOL[c.holdings.indexOf(h)%FUNDCOL.length]):`<p class="muted">No price history (${why}).</p>`;
     const full=raw.map(x=>({d:x.d,x:x.p}));
     const rows=full.length>=2?changeRows(full,h.a.price,periods):"";
     const rangeChange=ser.length>=2?(()=>{const a=ser[0].x,b=ser[ser.length-1].x,p=(b/a-1)*100;return `<span class="${p<0?"neg":"pos"}">${p>=0?"+":""}${p.toFixed(1)}%</span> <span class="muted">over ${R} (from ${ser[0].d})</span>`;})():"";
