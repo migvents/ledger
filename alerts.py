@@ -77,7 +77,24 @@ if wsum:
         state["fired"] = []
         notify("Ledger: recovery", "Equities back within 5% of their high. Dip tiers reset.")
 
+    worst = [l for l in lines if "-1" in l or "-2" in l or "-3" in l]
+    per_fund = [f["ticker"] for f in cfg["funds"] if f.get("equity")]
     due = [t for t in cfg["dip_tiers_percent"] if eq_dd <= -t and t not in state["fired"]]
+    # individual funds far below their own high, even when the portfolio is not
+    solo = []
+    for ln in lines:
+        try:
+            pct = float(ln.split("(")[1].split("%")[0])
+            if pct <= -cfg["dip_tiers_percent"][0]:
+                solo.append(ln.split(" (")[0].split(" (via")[0] + f" {pct:.0f}%")
+        except Exception:
+            pass
+    if solo and not due and state.get("last_solo_alert") != today.strftime("%Y-%m"):
+        notify("Ledger: a fund is well below its high",
+               "Below their 1-year high: " + "; ".join(solo) +
+               ". The portfolio as a whole has not crossed a dip tier, so no extra tranche is due; "
+               "your monthly plan already buys more of what has fallen. Act only if the app shows it outside the rebalance band.")
+        state["last_solo_alert"] = today.strftime("%Y-%m")
     if due:
         extra = cfg["extra_tranche_eur"] * len(due)
         amt = f"EUR {extra:,.0f}" if extra else "your pre-set tranche (not configured)"
