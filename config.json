@@ -1,16 +1,61 @@
 {
   "_note": "Free Twelve Data plan covers US listings only. These US-listed twins track the same indices as VUAA/XDEW/EXUS/VFEA/PPFB and are used to measure the market's fall from its high.",
   "funds": [
-    {"ticker": "VUAA", "symbol": "VOO", "exchange": "NYSE", "target": 40, "equity": true},
-    {"ticker": "XDEW", "symbol": "RSP", "exchange": "NYSE", "target": 20, "equity": true},
-    {"ticker": "EXUS", "symbol": "VEA", "exchange": "NYSE", "target": 15, "equity": true},
-    {"ticker": "VFEA", "symbol": "VWO", "exchange": "NYSE", "target": 15, "equity": true},
-    {"ticker": "PPFB", "symbol": "GLD", "exchange": "NYSE", "target": 10, "equity": false}
+    {
+      "ticker": "VUAA",
+      "symbol": "VOO",
+      "exchange": "NYSE",
+      "target": 40,
+      "equity": true,
+      "stooq": "vuaa.de"
+    },
+    {
+      "ticker": "XDEW",
+      "symbol": "RSP",
+      "exchange": "NYSE",
+      "target": 20,
+      "equity": true,
+      "stooq": "xdew.de"
+    },
+    {
+      "ticker": "EXUS",
+      "symbol": "VEA",
+      "exchange": "NYSE",
+      "target": 15,
+      "equity": true,
+      "stooq": "exus.de"
+    },
+    {
+      "ticker": "VFEA",
+      "symbol": "VWO",
+      "exchange": "NYSE",
+      "target": 15,
+      "equity": true,
+      "stooq": "vfea.de"
+    },
+    {
+      "ticker": "PPFB",
+      "symbol": "GLD",
+      "exchange": "NYSE",
+      "target": 10,
+      "equity": false,
+      "stooq": "ppfb.de"
+    }
   ],
-  "dip_tiers_percent": [15, 25, 35],
+  "dip_tiers_percent": [
+    15,
+    25,
+    35,
+    45
+  ],
   "extra_tranche_eur": 0,
   "monthly_eur": 200,
   "rebalance_month": 1,
   "tob_reminder_day": 20,
-  "plan_day": 4
+  "plan_day": 4,
+  "confirm_days": 3,
+  "_note2": "stooq gives the real EUR listing where available (free, no key). If the log says a symbol is unavailable, clear it and the US twin is used instead.",
+  "daily_digest": true,
+  "intraday": true,
+  "intraday_move_percent": 3
 }
