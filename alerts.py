@@ -49,7 +49,7 @@ def stooq(sym):
         out = [c for _, c in sorted(out)][-400:]
         return list(reversed(out)) if len(out) >= 30 else None
     except Exception as e:
-        print("stooq failed for", sym, e); return None
+        return None
 
 def live(f):
     """Latest traded price for the fund's US twin, for an intraday view."""
@@ -67,13 +67,21 @@ def series(f):
         {"symbol": f["symbol"], "exchange": f.get("exchange", "")},
         {"symbol": f["symbol"]},
     ]
-    if f.get("stooq"):
-        c = stooq(f["stooq"])
-        if c:
-            print(f"{f['ticker']}: ok via stooq {f['stooq']} (EUR listing)")
-            return c
-        print(f"{f['ticker']}: stooq {f['stooq']} unavailable, falling back to {f['symbol']}")
+    base = (f.get("stooq") or "").split(".")[0] or f["ticker"].lower()
+    if f.get("stooq") is not None and f.get("stooq") != "":
+        remembered = state.get("stooq_ok", {}).get(f["ticker"])
+        cands = ([remembered] if remembered else []) + [f"{base}.{sfx}" for sfx in ("uk", "de", "fr", "it", "nl")]
+        for sym in dict.fromkeys(cands):
+            c = stooq(sym)
+            if c:
+                print(f"{f['ticker']}: ok via stooq {sym} (European listing)")
+                state.setdefault("stooq_ok", {})[f["ticker"]] = sym
+                return c
+        print(f"{f['ticker']}: no stooq listing found, using {f['symbol']}")
+    global budget_low
     for params in attempts:
+        if budget_low:
+            return None
         time.sleep(2)  # free plan: 8 requests per minute
         params = {k: v for k, v in params.items() if v}
         params.update({"interval": "1day", "outputsize": 260, "apikey": API})
@@ -81,10 +89,17 @@ def series(f):
         if j.get("values"):
             print(f"{f['ticker']}: ok via {params.get('exchange') or params.get('mic_code') or 'default'}")
             return [float(v["close"]) for v in j["values"]]
-        print(f"{f['ticker']}: {j.get('message') or j.get('status')} (tried {params})")
+        m = str(j.get("message") or j.get("status"))
+        if "for the day" in m or "daily" in m.lower():
+            budget_low = True
+            print(f"{f['ticker']}: daily API budget exhausted; stopping price lookups for this run")
+            return None
+        print(f"{f['ticker']}: {m} (tried {params})")
     return None
 
 today = dt.date.today()
+evening = dt.datetime.utcnow().hour >= 15   # last run of the day handles calendar reminders
+budget_low = False
 lines, missing, dd_sum, wsum = [], [], 0.0, 0.0
 fund_dd, peaks, intraday = {}, {}, {}
 for f in cfg["funds"]:
@@ -96,7 +111,7 @@ for f in cfg["funds"]:
     fund_dd[f["ticker"]] = dd
     peaks[f["ticker"]] = peak
     lines.append(f"{f['ticker']} {dd:+.1f}% vs 1y high")
-    if cfg.get("intraday", True):
+    if cfg.get("intraday", True) and not budget_low:
         time.sleep(2)
         lp = live(f)
         if lp:
@@ -205,7 +220,7 @@ if wsum:
                "Buying more of it is reasonable if you have spare money; your monthly plan already tilts toward whatever has fallen. "
                "Do not sell anything to fund it.")
 else:
-    print("No equity data at all; skipping dip check.")
+    print("No equity data this run (API budget or source outage); nothing sent, will retry next run.")
 
 if evening and today.month == cfg["rebalance_month"] and state.get("last_rebalance_alert") != str(today.year):
     msg = "Open the app: Transactions > Rebalance shows the steps."
