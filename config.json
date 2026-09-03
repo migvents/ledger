@@ -11,5 +11,6 @@
   "extra_tranche_eur": 0,
   "monthly_eur": 200,
   "rebalance_month": 1,
-  "tob_reminder_day": 20
+  "tob_reminder_day": 20,
+  "plan_day": 4
 }
