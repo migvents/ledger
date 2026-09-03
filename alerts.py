@@ -5,7 +5,7 @@ and sends phone notifications through ntfy.sh when a dip tier is crossed,
 when the rebalance month starts, and on the monthly TOB reminder day.
 State (which tiers have already fired) is kept in state.json and committed back.
 """
-import json, os, time, datetime as dt, urllib.request, urllib.parse, urllib.error
+import json, os, time, base64, datetime as dt, urllib.request, urllib.parse, urllib.error
 
 API = os.environ["TWELVE_DATA_KEY"]
 TOPIC = os.environ["NTFY_TOPIC"]
@@ -100,5 +100,62 @@ if today.day == cfg["tob_reminder_day"] and state.get("last_tob_alert") != key:
     notify("Ledger: TOB declaration",
            f"Declare and pay the TOB for trades made in {two_ago.strftime('%B %Y')} by the end of this month (FPS Finance). Amounts are in the app.")
     state["last_tob_alert"] = key
+
+
+# ---------- monthly plan from the synced (encrypted) app data ----------
+def load_ledger():
+    gid, pw = os.environ.get("GIST_ID", ""), os.environ.get("SYNC_PASSPHRASE", "")
+    if not gid or not pw:
+        print("no GIST_ID / SYNC_PASSPHRASE secrets; skipping monthly plan"); return None
+    try:
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        j = get("https://api.github.com/gists/" + gid)
+        f = j["files"]["ledger.enc"]
+        content = f["content"] if not f.get("truncated") else urllib.request.urlopen(f["raw_url"], timeout=30).read().decode()
+        o = json.loads(content)
+        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=base64.b64decode(o["salt"]), iterations=150000)
+        key = kdf.derive(pw.encode())
+        pt = AESGCM(key).decrypt(base64.b64decode(o["iv"]), base64.b64decode(o["data"]), None)
+        return json.loads(pt.decode())
+    except Exception as e:
+        print("could not read ledger:", e); return None
+
+plan_day = cfg.get("plan_day", 1)
+if today.day == plan_day and state.get("last_plan_alert") != today.strftime("%Y-%m"):
+    L = load_ledger()
+    if L:
+        st_, assets, tx = L["settings"], L["assets"], L.get("tx", [])
+        D = float(st_.get("monthly", 0) or 0); band = float(st_.get("band", 5) or 5)
+        tob = float(st_.get("tob", 0.12) or 0) / 100
+        hold = []
+        for a in assets:
+            units = sum(t["units"] for t in tx if t.get("ticker") == a["ticker"] and t["type"] == "Buy") - \
+                    sum(t["units"] for t in tx if t.get("ticker") == a["ticker"] and t["type"] == "Sell")
+            hold.append({"a": a, "value": units * float(a.get("price") or 0)})
+        invested = sum(h["value"] for h in hold)
+        for h in hold:
+            h["weight"] = (h["value"] / invested * 100) if invested else 0
+            h["drift"] = h["weight"] - float(h["a"]["target"])
+        periodic = [h for h in hold if (h["a"].get("buyMonths") or "").strip()]
+        monthly = [h for h in hold if h not in periodic]
+        pshare = sum(float(h["a"]["target"]) for h in periodic) / 100
+        Dm = D * (1 - pshare)
+        tw = [float(h["a"]["target"]) * min(1.5, max(0.5, 1 - h["drift"] / (2 * band))) for h in monthly]
+        tws = sum(tw) or 1
+        lines_ = []
+        for h, w in zip(monthly, tw):
+            amt = Dm * w / tws; base = D * float(h["a"]["target"]) / 100
+            tag = "" if abs(amt - base) < 0.5 else (" (up from %.0f)" % base if amt > base else " (down from %.0f)" % base)
+            lines_.append(f"{h['a']['ticker']}: EUR {amt:.0f}{tag}")
+        for h in periodic:
+            months = [int(x) for x in h["a"]["buyMonths"].split(",") if x.strip().isdigit()]
+            share = D * float(h["a"]["target"]) / 100
+            due = today.month in months
+            lines_.append(f"{h['a']['ticker']} ({h['a'].get('broker','other')}): set aside EUR {share:.0f}" + (" - BUY THIS MONTH" if due else ""))
+        msg = f"Monthly amount EUR {D:.0f}. Revolut plan: " + "; ".join(lines_) + f". Then log the purchases in the app. TOB on Revolut buys about EUR {Dm*tob:.2f}."
+        notify("Ledger: this month's investments", msg)
+        state["last_plan_alert"] = today.strftime("%Y-%m")
 
 json.dump(state, open("state.json", "w"), indent=2)
