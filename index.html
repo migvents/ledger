@@ -283,7 +283,7 @@ const INFO = {
 const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
 
 // ---------- state ----------
-const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 42 · 2026-09-04";
+const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 44 · 2026-09-04";
 let mem=null;
 const defaults=()=>({
  settings:{band:5,tob:0.12,buffer:0,priceDate:new Date().toISOString().slice(0,10),rebalanceMonth:1,lastRebalance:"",monthly:200,maxOrders:5,autoPrices:true,dipTranche:0,dipTiers:[15,25,35],dipFired:[]},
@@ -470,18 +470,26 @@ function priceOn(ticker,date){ const h=loadHist(); const ser=h&&h.series&&h.seri
 function portfolioSeries(){
   const h=loadHist(); if(!h||!h.series)return null;
   const tick=S.assets.filter(a=>h.series[a.ticker]&&h.series[a.ticker].length).map(a=>a.ticker); if(!tick.length)return null;
-  const priced=S.assets.filter(a=>a.price>0).length; if(!priced)return null;
+  if(!S.assets.some(a=>a.price>0))return null;
+  const main=S.settings.mainBroker||"Revolut";
   const dates=[...new Set([].concat(...tick.map(t=>h.series[t].map(x=>x.d))))].sort();
-  const first=(S.tx.map(t=>t.date).sort()[0])||dates[0];
+  const txs=S.tx.slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const first=(txs[0]&&txs[0].date)||dates[0];
   const out=[];
   for(const d of dates){ if(d<first)continue;
-    let cash=0, val=0; const units={};
-    for(const t of S.tx){ if(t.date>d)continue;
-      if(t.type==="Deposit")cash+=t.amount; else if(t.type==="Withdrawal"||t.type==="Fee")cash-=t.amount;
-      else { const g=t.units*t.price, x=(t.fee||0)+(t.tobPaid?0:tob(t));
-        if(t.type==="Buy"){cash-=g+x;units[t.ticker]=(units[t.ticker]||0)+t.units;} else {cash+=g-x;units[t.ticker]=(units[t.ticker]||0)-t.units;} } }
-    for(const tk in units){ if(Math.abs(units[tk])<1e-9)continue; const p=priceOn(tk,d); if(p)val+=units[tk]*p; }
-    let put=0; for(const t of S.tx){ if(t.date>d)continue; if(t.type==="Deposit")put+=t.amount; if(t.type==="Withdrawal")put-=t.amount; }
+    // walk transactions up to this date with the same rules as calc(): unlogged deposits at the
+    // main broker are inferred from purchases, so cash never goes negative and "put in" stays right
+    const cashBy={}; const units={}; let put=0;
+    for(const t of txs){ if(t.date>d)continue; const b=brokerOf(t); cashBy[b]=cashBy[b]||0;
+      if(t.type==="Deposit"){ cashBy[b]+=t.amount; put+=t.amount; }
+      else if(t.type==="Withdrawal"){ cashBy[b]-=t.amount; put-=t.amount; }
+      else if(t.type==="Fee"){ cashBy[b]-=t.amount; }
+      else if(t.type==="Buy"||t.type==="Sell"){ const g=t.units*t.price, extra=(t.fee||0)+(t.tobPaid?tob(t):0);
+        if(t.type==="Buy"){ cashBy[b]-=g+extra; units[t.ticker]=(units[t.ticker]||0)+t.units;
+          if(b===main&&cashBy[b]<0){ put+=-cashBy[b]; cashBy[b]=0; } }
+        else { cashBy[b]+=g-extra; units[t.ticker]=(units[t.ticker]||0)-t.units; } } }
+    let val=0; for(const tk in units){ if(Math.abs(units[tk])<1e-9)continue; const p=priceOn(tk,d); if(p)val+=units[tk]*p; }
+    const cash=Object.values(cashBy).reduce((x,y)=>x+y,0);
     out.push({d,v:Math.round((val+cash)*100)/100,k:Math.round(put*100)/100});
   }
   if(out.length){ const c=calc(); const todayKey=new Date().toISOString().slice(0,10);
@@ -768,8 +776,12 @@ function metrics(c){
   // volatility and drawdown from a time-weighted index built on the reconstructed series
   const H=portfolioSeries()||S.history||[]; m.days=H.length;
   if(H.length>5){ let idx=1, peak=1, dd=0; const rets=[];
-    for(let i=1;i<H.length;i++){ const flow=(H[i].k-H[i-1].k); const prev=H[i-1].v; if(prev<=0)continue;
-      const ret=(H[i].v-flow)/prev-1; if(!isFinite(ret)||Math.abs(ret)>0.5)continue; rets.push(ret); idx*=(1+ret); peak=Math.max(peak,idx); dd=Math.min(dd,idx/peak-1); }
+    for(let i=1;i<H.length;i++){ const flow=(H[i].k-H[i-1].k); const prev=H[i-1].v;
+      // skip days with contributions: the exact moment money lands is unknown, and a wrong
+      // attribution on a small portfolio produces huge fake swings
+      if(prev<50||Math.abs(flow)>0.005)continue;
+      const ret=H[i].v/prev-1; if(!isFinite(ret)||Math.abs(ret)>0.25)continue;
+      rets.push(ret); idx*=(1+ret); peak=Math.max(peak,idx); dd=Math.min(dd,idx/peak-1); }
     m.nret=rets.length;
     if(rets.length>=40){ const mean=rets.reduce((a,b)=>a+b,0)/rets.length;
       m.vol=Math.sqrt(rets.reduce((a,b)=>a+(b-mean)**2,0)/(rets.length-1))*Math.sqrt(252)*100; }
@@ -791,14 +803,14 @@ function renderKpis(c){
    ["Money in",eur(c.deposits-c.withdrawals),m.plan?`plan ${eur(m.plan)}/month`:"","moneyin"],
    ["Gain",`<span class="${m.gain<0?"neg":"pos"}">${m.gain>=0?"+":""}${eur(m.gain)}</span>`,`${m.gainPct>=0?"+":""}${m.gainPct.toFixed(1)}% on money in`,"gain"],
    ["Return per year (IRR)",num(m.irr,v=>`<span class="${v<0?"neg":"pos"}">${v>=0?"+":""}${v.toFixed(1)}%</span>`),"money-weighted","irr"],
-   ["Market return (TWR)",num(m.twr,v=>`${v>=0?"+":""}${v.toFixed(1)}%`),m.days?`over ${m.days} days recorded`:"needs history","twr"],
+   ["Market return (TWR)",m.nret>=20?num(m.twr,v=>`${v>=0?"+":""}${v.toFixed(1)}%`):"–",m.nret>=20?`over ${m.nret} market days`:`needs more history (${m.nret||0} days)`,"twr"],
    ["Invested per month",eur(m.perMonth),m.plan?(m.perMonth>=m.plan*0.95?"on plan":"below plan"):"","contrib"],
    ["Fund cost",m.ter.toFixed(2)+"%",eur(m.terEur)+" a year at this size","cost"],
    ["Fees and TOB paid",eur(c.fees),(c.deposits>0?(c.fees/c.deposits*100).toFixed(2):"0")+"% of money in","fees"],
    ["Top-10 US megacaps",m.top10.toFixed(0)+"%","of the portfolio","top10"],
    ["US exposure",m.us.toFixed(0)+"%",`equities ${m.equity.toFixed(0)}% of portfolio`,"usexp"],
    ["Volatility",m.vol!=null?m.vol.toFixed(0)+"%":"–",m.vol!=null?"yearly swing":`needs ~2 months (${m.nret||0} days so far)`,"vol"],
-   ["Worst drop",num(m.maxdd,v=>`<span class="neg">${v.toFixed(1)}%</span>`),m.days?"since records began":"needs history","dd"],
+   ["Worst drop",m.nret>=40?num(m.maxdd,v=>`<span class="neg">${v.toFixed(1)}%</span>`):"–",m.nret>=40?"since records began":`needs ~2 months (${m.nret||0} usable days)`,"dd"],
    ["Biggest sector",m.topSector?`${m.topSector.pct.toFixed(0)}%`:"–",m.topSector?m.topSector.k:"","sector"],
    ["Sector spread",m.effectiveSectors?m.effectiveSectors.toFixed(1):"–","effective sectors","spread"],
   ];
