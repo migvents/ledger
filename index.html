@@ -263,7 +263,7 @@ const INFO = {
  sync:{t:"Sync between devices",p:["Your data is saved in a private file (a 'gist') on your own GitHub account, encrypted with a passphrase before it leaves the device, so GitHub only ever stores scrambled text. Each device that has the token and the same passphrase reads and writes the same file; the newest copy wins.","To create the token: GitHub → your profile picture → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token. Name it 'ledger sync', set expiration to one year, leave repository access on 'Public repositories (read-only)', and under Account permissions set Gists to 'Read and write'. Copy the token once; GitHub will not show it again.","The token and passphrase stay on each device and are never uploaded. If you lose the passphrase the cloud copy cannot be read; your device copy still works and will re-upload."]},
  perf:{t:"Performance",p:["Once price history is downloaded (Funds tab), the chart and the table are rebuilt from your actual transactions valued at each day's prices, so they go back to your first purchase. Without it, they use the daily snapshots the app takes from installation onwards.","The app records the portfolio's total value once a day. Each row shows what it was worth on the nearest recorded day for that period, and the change in euros and percent to today's value. The last column shows how much of that change is money you deposited in the meantime, so you can tell growth from contributions at a glance. Periods longer than the recorded history show the date recording began."]},
  irr:{t:"Return per year (IRR)",p:["<strong>What it is.</strong> The annual rate your money has actually earned, taking into account when each euro arrived. A euro invested last month has had no time to grow, and this figure accounts for that; the simple gain percentage does not.","<strong>What to conclude.</strong> Compare it with what a diversified portfolio can be expected to deliver over long periods, roughly 5 to 8% a year before inflation.","<strong>Rough bands.</strong> Below 0%: normal in the first years or after a fall, no action. 0 to 4%: below expectation, usually the market rather than you. 4 to 9%: in line with a portfolio like yours. Above 12%: an unusually good run, not a rate to plan on.","Ignore it entirely in the first year: with few months of data it swings wildly."]},
- twr:{t:"Market return (TWR)",p:["<strong>What it is.</strong> How the funds themselves performed over the recorded period, stripped of the effect of your deposits. IRR answers 'how did my money do'; this answers 'how did the market do'.","<strong>What to conclude.</strong> If IRR is far below TWR, your recent contributions simply arrived late, which is not a mistake. If TWR is negative while you keep buying, you are buying cheaper, which is the plan working.","<strong>Bands.</strong> Over a full year: below −20% is a serious market fall, −20 to 0% an ordinary bad patch, 0 to 10% normal, above 20% an exceptional year."]},
+ twr:{t:"Market return (TWR)",p:["<strong>What it is.</strong> How the funds themselves performed over the recorded period, stripped of the effect of your deposits. It is measured on the units you held at the start of each day, valued with those funds' own prices, so money arriving during a day cannot distort it and no day is left out. IRR answers 'how did my money do'; this answers 'how did the market do'.","<strong>What to conclude.</strong> If IRR is far below TWR, your recent contributions simply arrived late, which is not a mistake. If TWR is negative while you keep buying, you are buying cheaper, which is the plan working.","<strong>Bands.</strong> Over a full year: below −20% is a serious market fall, −20 to 0% an ordinary bad patch, 0 to 10% normal, above 20% an exceptional year."]},
  contrib:{t:"Invested per month",p:["<strong>What it is.</strong> Your average monthly contribution over the past year, next to the plan you set.","<strong>What to conclude.</strong> This is the single most powerful lever you control. Over ten years, raising it by €100 a month adds more than most changes in allocation ever will.","<strong>Bands.</strong> A common target is 10 to 20% of net income. If you are consistently below your plan, lower the plan to something you will actually keep rather than missing it every month."]},
  cost:{t:"Fund cost",p:["<strong>What it is.</strong> The weighted annual charge of the funds you hold, and what it costs in euros at today's balance.","<strong>What to conclude.</strong> Costs are certain, returns are not; this is the one number you can improve with no risk.","<strong>Bands.</strong> Under 0.20%: excellent, typical of index ETFs. 0.20 to 0.50%: acceptable. 0.50 to 1%: expensive, question it. Above 1%: typical of bank funds and worth leaving. Yours should stay near 0.13%."]},
  fees:{t:"Fees and TOB paid",p:["<strong>What it is.</strong> Every broker fee and transaction tax you have paid, and its share of the money you put in.","<strong>What to conclude.</strong> Small purchases with a fixed fee are what push this up. If a single fee is more than about 1% of the order, wait and buy a larger amount, or use a free savings plan.","<strong>Bands.</strong> Under 0.5% of contributions: fine. 0.5 to 1.5%: watch it. Above 2%: you are trading too often or in amounts that are too small."]},
@@ -283,7 +283,7 @@ const INFO = {
 const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
 
 // ---------- state ----------
-const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 44 · 2026-09-04";
+const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 45 · 2026-09-04";
 let mem=null;
 const defaults=()=>({
  settings:{band:5,tob:0.12,buffer:0,priceDate:new Date().toISOString().slice(0,10),rebalanceMonth:1,lastRebalance:"",monthly:200,maxOrders:5,autoPrices:true,dipTranche:0,dipTiers:[15,25,35],dipFired:[]},
@@ -773,20 +773,26 @@ function metrics(c){
   m.us=c.invested?c.holdings.reduce((x,h)=>x+h.value*(USSHARE[h.a.ticker]??0),0)/c.invested:0;
   const eq=c.holdings.filter(h=>!/gold|silver|bond/i.test(h.a.name||""));
   m.equity=c.invested?eq.reduce((x,h)=>x+h.value,0)/c.invested*100:0;
-  // volatility and drawdown from a time-weighted index built on the reconstructed series
+  // Market return: the daily return of the units held at the start of each day, valued with the
+  // funds' own prices. Contributions during the day cannot distort it, so no day is skipped.
   const H=portfolioSeries()||S.history||[]; m.days=H.length;
-  if(H.length>5){ let idx=1, peak=1, dd=0; const rets=[];
-    for(let i=1;i<H.length;i++){ const flow=(H[i].k-H[i-1].k); const prev=H[i-1].v;
-      // skip days with contributions: the exact moment money lands is unknown, and a wrong
-      // attribution on a small portfolio produces huge fake swings
-      if(prev<50||Math.abs(flow)>0.005)continue;
-      const ret=H[i].v/prev-1; if(!isFinite(ret)||Math.abs(ret)>0.25)continue;
+  const hh=loadHist();
+  if(hh&&hh.series){
+    const tick=S.assets.filter(a=>hh.series[a.ticker]&&hh.series[a.ticker].length).map(a=>a.ticker);
+    const dates=[...new Set([].concat(...tick.map(t=>hh.series[t].map(x=>x.d))))].sort();
+    const firstTx=S.tx.map(t=>t.date).sort()[0];
+    const unitsAt=d=>{ const u={}; for(const t of S.tx){ if(t.date>d)continue; if(t.type==="Buy")u[t.ticker]=(u[t.ticker]||0)+t.units; if(t.type==="Sell")u[t.ticker]=(u[t.ticker]||0)-t.units; } return u; };
+    let idx=1, peak=1, dd=0; const rets=[];
+    for(let i=1;i<dates.length;i++){ const d0=dates[i-1], d1=dates[i]; if(!firstTx||d1<firstTx)continue;
+      const u=unitsAt(d0); let v0=0, v1=0;
+      for(const tk in u){ if(Math.abs(u[tk])<1e-9)continue; const p0=priceOn(tk,d0), p1=priceOn(tk,d1); if(!p0||!p1)continue; v0+=u[tk]*p0; v1+=u[tk]*p1; }
+      if(v0<=1)continue; const ret=v1/v0-1; if(!isFinite(ret)||Math.abs(ret)>0.25)continue;
       rets.push(ret); idx*=(1+ret); peak=Math.max(peak,idx); dd=Math.min(dd,idx/peak-1); }
     m.nret=rets.length;
-    if(rets.length>=40){ const mean=rets.reduce((a,b)=>a+b,0)/rets.length;
+    if(rets.length>=20){ const mean=rets.reduce((a,b)=>a+b,0)/rets.length;
       m.vol=Math.sqrt(rets.reduce((a,b)=>a+(b-mean)**2,0)/(rets.length-1))*Math.sqrt(252)*100; }
     m.maxdd=dd*100; m.twr=(idx-1)*100;
-  }
+  } else { m.nret=0; }
   const sm=sectorMix(c); m.sectors=sm.arr; m.effectiveSectors=sm.effective; m.topSector=sm.arr[0]||null;
   // time to goals
   m.goals=[50000,100000].map(g=>{ const res={g}; [5,7].forEach(rate=>{ const rm=rate/100/12, pv=c.total, pmt=m.plan;
@@ -803,14 +809,14 @@ function renderKpis(c){
    ["Money in",eur(c.deposits-c.withdrawals),m.plan?`plan ${eur(m.plan)}/month`:"","moneyin"],
    ["Gain",`<span class="${m.gain<0?"neg":"pos"}">${m.gain>=0?"+":""}${eur(m.gain)}</span>`,`${m.gainPct>=0?"+":""}${m.gainPct.toFixed(1)}% on money in`,"gain"],
    ["Return per year (IRR)",num(m.irr,v=>`<span class="${v<0?"neg":"pos"}">${v>=0?"+":""}${v.toFixed(1)}%</span>`),"money-weighted","irr"],
-   ["Market return (TWR)",m.nret>=20?num(m.twr,v=>`${v>=0?"+":""}${v.toFixed(1)}%`):"–",m.nret>=20?`over ${m.nret} market days`:`needs more history (${m.nret||0} days)`,"twr"],
+   ["Market return (TWR)",m.nret>=20?num(m.twr,v=>`${v>=0?"+":""}${v.toFixed(1)}%`):"–",m.nret>=20?`over ${m.nret} market days, holdings only`:`needs more history (${m.nret||0} days)`,"twr"],
    ["Invested per month",eur(m.perMonth),m.plan?(m.perMonth>=m.plan*0.95?"on plan":"below plan"):"","contrib"],
    ["Fund cost",m.ter.toFixed(2)+"%",eur(m.terEur)+" a year at this size","cost"],
    ["Fees and TOB paid",eur(c.fees),(c.deposits>0?(c.fees/c.deposits*100).toFixed(2):"0")+"% of money in","fees"],
    ["Top-10 US megacaps",m.top10.toFixed(0)+"%","of the portfolio","top10"],
    ["US exposure",m.us.toFixed(0)+"%",`equities ${m.equity.toFixed(0)}% of portfolio`,"usexp"],
-   ["Volatility",m.vol!=null?m.vol.toFixed(0)+"%":"–",m.vol!=null?"yearly swing":`needs ~2 months (${m.nret||0} days so far)`,"vol"],
-   ["Worst drop",m.nret>=40?num(m.maxdd,v=>`<span class="neg">${v.toFixed(1)}%</span>`):"–",m.nret>=40?"since records began":`needs ~2 months (${m.nret||0} usable days)`,"dd"],
+   ["Volatility",m.vol!=null?m.vol.toFixed(0)+"%":"–",m.vol!=null?"yearly swing":`needs ~4 weeks (${m.nret||0} days so far)`,"vol"],
+   ["Worst drop",m.nret>=30?num(m.maxdd,v=>`<span class="neg">${v.toFixed(1)}%</span>`):"–",m.nret>=30?"since your first purchase":`needs ~6 weeks (${m.nret||0} days)`,"dd"],
    ["Biggest sector",m.topSector?`${m.topSector.pct.toFixed(0)}%`:"–",m.topSector?m.topSector.k:"","sector"],
    ["Sector spread",m.effectiveSectors?m.effectiveSectors.toFixed(1):"–","effective sectors","spread"],
   ];
