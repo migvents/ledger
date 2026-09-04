@@ -26,14 +26,19 @@ button{font:inherit;cursor:pointer}
 .hero{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-top:14px}
 .hero .big{font-family:Fraunces,Georgia,serif;font-size:40px;line-height:1;grid-column:1/-1;font-weight:600;letter-spacing:-.02em;color:var(--blue)}
 .hero .k{color:var(--ink2);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
-.hero .v{font-size:17px;font-weight:500;margin-top:2px}
+.hero .v{font-size:17px;font-weight:500;margin-top:2px;overflow-wrap:anywhere}
+.hero{min-width:0}.hero>div{min-width:0}
 .pos{color:var(--green)} .neg{color:var(--red)}
 .tabs{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-top:1px solid var(--rule);display:flex;justify-content:space-around;padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:5}
 .tabs button{background:none;border:0;color:var(--ink2);padding:6px 4px;border-radius:10px;font-size:10px;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:46px}
 .tabs button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tabs button.on{color:var(--blue);font-weight:600}
 .panel{display:none}.panel.on{display:block}
-.card{background:var(--card);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px}
+.card{background:var(--card);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+.card table{min-width:0}
+img,svg,table{max-width:100%}
+td,th{overflow-wrap:anywhere}
+.tag{max-width:100%;white-space:normal}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th{text-align:left;font-weight:600;color:var(--ink2);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 6px;border-bottom:1px solid var(--rule)}
 td{padding:10px 6px;border-bottom:1px solid var(--rule);vertical-align:top}
@@ -54,6 +59,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .assetrow input{min-width:0}
 @media(min-width:700px){.assetrow{grid-template-columns:repeat(4,minmax(0,1fr))}}
 label{display:block;font-size:12px;color:var(--ink2);margin-bottom:4px;font-weight:500}
+input,select,textarea{max-width:100%;min-width:0}
 input,select{width:100%;padding:11px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--white);font:inherit;color:var(--ink)}
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
 .btn{background:var(--blue);color:var(--white);border:0;padding:12px 18px;border-radius:10px;font-weight:600}
@@ -265,7 +271,7 @@ const INFO = {
 const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
 
 // ---------- state ----------
-const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 38 · 2026-09-03";
+const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 39 · 2026-09-03";
 let mem=null;
 const defaults=()=>({
  settings:{band:5,tob:0.12,buffer:0,priceDate:new Date().toISOString().slice(0,10),rebalanceMonth:1,lastRebalance:"",monthly:200,maxOrders:5,autoPrices:true,dipTranche:0,dipTiers:[15,25,35],dipFired:[]},
@@ -772,9 +778,9 @@ function renderKpis(c){
    ["Sector spread",m.effectiveSectors?m.effectiveSectors.toFixed(1):"–","effective sectors","spread"],
   ];
   const sc=["#2563EB","#7C3AED","#0891B2","#059669","#C8962E","#DB2777","#DC2626","#0F766E","#7C2D12","#475569","#A16207"];
-  const secRows=m.sectors.map((x,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px"><span style="width:130px">${x.k}</span><span style="flex:1;height:10px;background:var(--rule);border-radius:5px;overflow:hidden"><span style="display:block;height:100%;width:${Math.min(100,x.pct)}%;background:${sc[i%sc.length]}"></span></span><span class="n" style="width:44px;text-align:right">${x.pct.toFixed(0)}%</span></div>`).join("");
+  const secRows=m.sectors.map((x,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px"><span style="flex:0 1 110px;min-width:0;overflow-wrap:anywhere">${x.k}</span><span style="flex:1;height:10px;background:var(--rule);border-radius:5px;overflow:hidden"><span style="display:block;height:100%;width:${Math.min(100,x.pct)}%;background:${sc[i%sc.length]}"></span></span><span class="n" style="width:44px;text-align:right">${x.pct.toFixed(0)}%</span></div>`).join("");
   const goalRows=m.goals.map(g=>`<tr><td>€${(g.g/1000)}k</td><td class="n">${yrs(g.y5)}</td><td class="n">${yrs(g.y7)}</td></tr>`).join("");
-  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">`+
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">`+
     items.map(([k,v,sub,info])=>`<div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">${k}${info?` <button class="info" data-info="${info}">?</button>`:""}</div><div style="font-size:17px;font-weight:500">${v}</div>${sub?`<div class="muted" style="font-size:12px">${sub}</div>`:""}</div>`).join("")+
     `</div><h3 style="font-family:Fraunces,serif;font-weight:600;font-size:15px;margin:16px 0 4px">Time to reach <button class="info" data-info="goal">?</button></h3>
      <table><tr><th>Target</th><th class="n">at 5%/yr</th><th class="n">at 7%/yr</th></tr>${goalRows}</table>
@@ -834,7 +840,7 @@ function renderTob(){
   const fmt=k=>{const [y,m]=k.split("-");return mn[+m-1]+" "+y;};
   const todo=rows.filter(r=>!r.declared), waiting=rows.filter(r=>r.declared&&!r.paid), late=rows.filter(r=>r.overdue);
   const sum=a=>a.reduce((x,r)=>x+r.amount,0);
-  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:10px">
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:10px">
       <div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">To declare</div><div style="font-size:17px;font-weight:500">${eur(sum(todo))}</div><div class="muted" style="font-size:12px">${todo.length} month${todo.length===1?"":"s"}</div></div>
       <div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">Declared, to pay</div><div style="font-size:17px;font-weight:500">${eur(sum(waiting))}</div><div class="muted" style="font-size:12px">${waiting.length} month${waiting.length===1?"":"s"}</div></div>
       <div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">Overdue</div><div style="font-size:17px;font-weight:500" class="${late.length?"neg":""}">${late.length?eur(sum(late)):"none"}</div><div class="muted" style="font-size:12px">${late.length?late.map(r=>fmt(r.month)).join(", "):"nothing late"}</div></div></div>
@@ -846,7 +852,7 @@ function renderTob(){
         <td>${r.declared?`<span class="tag ok">${r.declared}</span> <button class="del" data-tobundec="${r.month}">undo</button>`:`<button class="del" data-tobdec="${r.month}" style="color:var(--ink);text-decoration:underline">mark declared</button>`}</td>
         <td>${r.paid?`<span class="tag ok">${r.paid}</span> <button class="del" data-tobunpaid="${r.month}">undo</button>`:(r.declared?`<button class="del" data-tobpaid="${r.month}" style="color:var(--ink);text-decoration:underline">mark paid</button>`:`<span class="muted">–</span>`)}</td></tr>`).join("")+`</table>`
       :`<p class="muted">No transaction tax owed yet: log a purchase and it appears here.</p>`}
-    <div class="row one" style="margin-top:10px"><div><label>Structured reference for a declared month (optional)</label><div style="display:flex;gap:8px"><select id="tob-refmonth" style="flex:0 0 130px">${rows.filter(r=>r.declared).map(r=>`<option value="${r.month}">${fmt(r.month)}</option>`).join("")||"<option value=''>none yet</option>"}</select><input id="tob-ref" placeholder="+++205/0882/34088+++" value=""><button class="btn quiet" id="tob-saveref">Save</button></div></div></div>
+    <div class="row one" style="margin-top:10px"><div><label>Structured reference for a declared month (optional)</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="tob-refmonth" style="flex:0 0 110px;min-width:0">${rows.filter(r=>r.declared).map(r=>`<option value="${r.month}">${fmt(r.month)}</option>`).join("")||"<option value=''>none yet</option>"}</select><input id="tob-ref" placeholder="+++205/0882/34088+++" value=""><button class="btn quiet" id="tob-saveref">Save</button></div></div></div>
     <ol class="muted" style="margin:12px 0 0 18px;padding:0;font-size:13px">
       <li>Deadline: the last day of the second month after the trade (a purchase in September is due by 30 November). Declaring and paying can happen on different days; both are tracked here.</li>
       <li>Declare at MyMinfin ("TOB aangifte"), then pay to the FPS Finance account with the structured reference the declaration gives you. Save that reference above.</li>
@@ -861,7 +867,7 @@ function renderRebal(c){
   const plan=rebalancePlan(c); const flagged=c.holdings.filter(h=>Math.abs(h.drift)>S.settings.band);
   const rows=c.holdings.map((h,i)=>{ const p=plan.find(x=>x.h===h); const delta=p?p.delta:0; const act=delta>0?"Buy":delta<0?"Sell":"";
     return `<tr><td><strong>${h.a.ticker}</strong><div class="muted">${h.weight.toFixed(1)}% → ${h.a.target}%</div></td><td class="n">${act?`<span class="tag ${act==="Buy"?"under":"over"}">${act} ${eur0(Math.abs(delta)).replace("+","")}</span>`:`<span class="tag ok">keep</span>`}</td>
-      <td><input data-rb-units="${i}" placeholder="units" inputmode="decimal" style="width:90px"></td><td><input data-rb-price="${i}" placeholder="price €" inputmode="decimal" style="width:90px"></td><td><input data-rb-fee="${i}" placeholder="fee" inputmode="decimal" style="width:60px"></td></tr>`; }).join("");
+      <td><input data-rb-units="${i}" placeholder="units" inputmode="decimal" style="width:72px;padding:8px 8px"></td><td><input data-rb-price="${i}" placeholder="price" inputmode="decimal" style="width:72px;padding:8px 8px"></td><td><input data-rb-fee="${i}" placeholder="fee" inputmode="decimal" style="width:56px;padding:8px 8px"></td></tr>`; }).join("");
   el.innerHTML=`<p>${due?`<span class="tag under">Due now</span> It is ${mn[rm-1]}, your rebalance month.`:`Next check: ${mn[rm-1]} ${now.getMonth()+1>rm||last.slice(0,4)===String(now.getFullYear())?now.getFullYear()+1:now.getFullYear()}${last?" · last done "+last:""}.`}</p>
     <ol style="margin:6px 0 10px 18px;padding:0" class="muted">
       <li>Type today's Revolut and Trade Republic prices in the Prices tab so the weights are exact.</li>
