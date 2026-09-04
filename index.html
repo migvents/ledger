@@ -37,7 +37,15 @@ button{font:inherit;cursor:pointer}
 .card{background:var(--card);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 .card table{min-width:0}
 img,svg,table{max-width:100%}
-td,th{overflow-wrap:anywhere}
+td,th{overflow-wrap:normal;white-space:normal}
+td.n,th.n{white-space:nowrap}
+.rows{display:flex;flex-direction:column}
+.rw{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.rw:last-child{border-bottom:0}
+.rw .ttl{font-weight:500}
+.rw .sub{color:var(--ink2);font-size:12px}
+.rw .amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rw .act{grid-column:1/-1;display:flex;gap:12px;align-items:center}
 .tag{max-width:100%;white-space:normal}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th{text-align:left;font-weight:600;color:var(--ink2);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 6px;border-bottom:1px solid var(--rule)}
@@ -52,7 +60,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .bar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--blue),var(--blue2));border-radius:4px}
 .bar b{position:absolute;top:-4px;width:2px;height:16px;background:var(--ink)}
 .next{margin:12px 0;padding:14px 16px;background:var(--card);border-left:4px solid var(--gold);border-radius:12px;box-shadow:var(--shadow)}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:10px;align-items:end}
 .row.one{grid-template-columns:1fr}
 .assetrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px 0;border-bottom:1px solid var(--rule)}
 .assetrow .full{grid-column:1/-1}
@@ -60,12 +68,16 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 @media(min-width:700px){.assetrow{grid-template-columns:repeat(4,minmax(0,1fr))}}
 label{display:block;font-size:12px;color:var(--ink2);margin-bottom:4px;font-weight:500}
 input,select,textarea{max-width:100%;min-width:0}
+input[type="date"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;text-align:left}
+select{-webkit-appearance:none;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--ink2) 50%),linear-gradient(135deg,var(--ink2) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
+.row>div{min-width:0}
 input,select{width:100%;padding:11px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--white);font:inherit;color:var(--ink)}
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
 .btn{background:var(--blue);color:var(--white);border:0;padding:12px 18px;border-radius:10px;font-weight:600}
 .btn.quiet{background:var(--white);color:var(--ink);border:1px solid var(--rule)}
 .btn.danger{background:var(--white);color:var(--red);border:1px solid var(--red)}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.actions .btn{flex:0 0 auto}
 .info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--ink2);color:var(--ink2);background:none;font-size:11px;font-family:Fraunces,Georgia,serif;font-style:italic;margin-left:2px;vertical-align:middle;padding:0}
 .del{background:none;border:0;color:var(--red);font-size:12px;padding:0}
 .muted{color:var(--ink2);font-size:13px}
@@ -271,7 +283,7 @@ const INFO = {
 const LEARN_ORDER=["revolut","tobfile","dip","orders","month","timing","rebalance","drift","band","equalweight","gold","bubble","tob","avgcost","acc","buffer","cash","gain","prices","targets"];
 
 // ---------- state ----------
-const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 39 · 2026-09-03";
+const KEY="ledger_v1"; const CKEY="ledger_creds_v1"; const VERSION="build 42 · 2026-09-04";
 let mem=null;
 const defaults=()=>({
  settings:{band:5,tob:0.12,buffer:0,priceDate:new Date().toISOString().slice(0,10),rebalanceMonth:1,lastRebalance:"",monthly:200,maxOrders:5,autoPrices:true,dipTranche:0,dipTiers:[15,25,35],dipFired:[]},
@@ -450,11 +462,15 @@ async function fetchHistory(){
   }catch(e){ say("Could not download history: "+e.message); }
   finally{ histBusy=false; }
 }
-function priceOn(ticker,date){ const h=loadHist(); const ser=h&&h.series&&h.series[ticker]; if(!ser)return null;
+function priceOn(ticker,date){ const h=loadHist(); const ser=h&&h.series&&h.series[ticker];
+  const a=S.assets.find(x=>x.ticker===ticker); const now=a&&a.price>0?a.price:null;
+  if(!ser||!ser.length)return now;                       // no history: value it at today's price
+  if(date>ser[ser.length-1].d)return now??ser[ser.length-1].p;
   let v=null; for(const x of ser){ if(x.d<=date)v=x.p; else break; } return v??ser[0].p; }
 function portfolioSeries(){
   const h=loadHist(); if(!h||!h.series)return null;
-  const tick=S.assets.filter(a=>h.series[a.ticker]).map(a=>a.ticker); if(!tick.length)return null;
+  const tick=S.assets.filter(a=>h.series[a.ticker]&&h.series[a.ticker].length).map(a=>a.ticker); if(!tick.length)return null;
+  const priced=S.assets.filter(a=>a.price>0).length; if(!priced)return null;
   const dates=[...new Set([].concat(...tick.map(t=>h.series[t].map(x=>x.d))))].sort();
   const first=(S.tx.map(t=>t.date).sort()[0])||dates[0];
   const out=[];
@@ -464,10 +480,13 @@ function portfolioSeries(){
       if(t.type==="Deposit")cash+=t.amount; else if(t.type==="Withdrawal"||t.type==="Fee")cash-=t.amount;
       else { const g=t.units*t.price, x=(t.fee||0)+(t.tobPaid?0:tob(t));
         if(t.type==="Buy"){cash-=g+x;units[t.ticker]=(units[t.ticker]||0)+t.units;} else {cash+=g-x;units[t.ticker]=(units[t.ticker]||0)-t.units;} } }
-    for(const tk in units){ const p=priceOn(tk,d); if(p)val+=units[tk]*p; }
+    for(const tk in units){ if(Math.abs(units[tk])<1e-9)continue; const p=priceOn(tk,d); if(p)val+=units[tk]*p; }
     let put=0; for(const t of S.tx){ if(t.date>d)continue; if(t.type==="Deposit")put+=t.amount; if(t.type==="Withdrawal")put-=t.amount; }
     out.push({d,v:Math.round((val+cash)*100)/100,k:Math.round(put*100)/100});
   }
+  if(out.length){ const c=calc(); const todayKey=new Date().toISOString().slice(0,10);
+    const last={d:todayKey,v:Math.round(c.total*100)/100,k:Math.round((c.deposits-c.withdrawals)*100)/100};
+    if(out[out.length-1].d===todayKey)out[out.length-1]=last; else out.push(last); }
   return out.length>1?out:null;
 }
 // ---------- number parsing (accepts 12,34 and 12.34) ----------
@@ -629,7 +648,13 @@ function render(){
         <span>To target: ${eur0(h.action)}</span></div></div>`;}).join("");
   // transactions
   const tl=document.getElementById("txlist"); const sorted=S.tx.map((t,i)=>({...t,i})).sort((a,b)=>b.date.localeCompare(a.date)||b.i-a.i);
-  tl.innerHTML=sorted.length?`<table><tr><th>Date</th><th>What</th><th class="n">Cash</th><th></th></tr>`+sorted.map(t=>`<tr><td>${t.date}</td><td>${t.type}${t.ticker?" "+t.ticker:""}${t.type==="Set aside"?" "+eur(t.amount):""}${t.type==="Buy"||t.type==="Sell"?`<div class="muted">${t.units} × ${eur(t.price)}${(t.fee||tob(t))?`, fee ${eur(t.fee||0)}, TOB ${eur(tob(t))}${t.tobPaid?" (broker)":""}`:""}</div>`:""}${t.note?`<div class="muted">${t.note}</div>`:""}</td><td class="n">${eur(cashEffect(t))}</td><td><button class="del" data-del="${t.i}">Delete</button></td></tr>`).join("")+"</table>":`<div class="empty">No transactions yet. Add your first deposit above.</div>`;
+  tl.innerHTML=sorted.length?`<div class="rows">`+sorted.map(t=>`<div class="rw">
+      <div><div class="ttl">${t.type}${t.ticker?" "+t.ticker:""}${t.type==="Set aside"?" "+eur(t.amount):""}</div>
+        <div class="sub">${t.date}${(t.type==="Buy"||t.type==="Sell")?` · ${Number(t.units).toLocaleString("en-GB",{maximumFractionDigits:6})} × ${eur(t.price)}${(t.fee||tob(t))?` · fee ${eur(t.fee||0)} · TOB ${eur(tob(t))}${t.tobPaid?" (broker)":""}`:""}`:""}${t.broker&&t.type!=="Buy"&&t.type!=="Sell"?" · "+t.broker:""}</div>
+        ${t.note?`<div class="sub">${t.note}</div>`:""}</div>
+      <div class="amt ${cashEffect(t)<0?"neg":cashEffect(t)>0?"pos":""}">${eur(cashEffect(t))}</div>
+      <div class="act"><button class="del" data-del="${t.i}">Delete</button></div></div>`).join("")+`</div>`
+    :`<div class="empty">No transactions yet. Add your first deposit above.</div>`;
   // prices
   document.getElementById("pr-date").value=S.settings.priceDate;
   document.getElementById("pricelist").innerHTML=S.assets.map((a,i)=>`<div class="row"><div><label>${a.ticker}</label><div class="muted" style="padding-top:8px">${a.name}</div></div><div><label>Price (€)</label><input type="text" inputmode="decimal" data-price="${i}" value="${a.price||""}"></div></div>`).join("");
@@ -844,13 +869,12 @@ function renderTob(){
       <div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">To declare</div><div style="font-size:17px;font-weight:500">${eur(sum(todo))}</div><div class="muted" style="font-size:12px">${todo.length} month${todo.length===1?"":"s"}</div></div>
       <div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">Declared, to pay</div><div style="font-size:17px;font-weight:500">${eur(sum(waiting))}</div><div class="muted" style="font-size:12px">${waiting.length} month${waiting.length===1?"":"s"}</div></div>
       <div><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">Overdue</div><div style="font-size:17px;font-weight:500" class="${late.length?"neg":""}">${late.length?eur(sum(late)):"none"}</div><div class="muted" style="font-size:12px">${late.length?late.map(r=>fmt(r.month)).join(", "):"nothing late"}</div></div></div>
-    ${rows.length?`<table><tr><th>Trades in</th><th class="n">Amount</th><th>Deadline</th><th>Declared</th><th>Paid</th></tr>`+
-      rows.map(r=>`<tr>
-        <td>${fmt(r.month)}<div class="muted">${r.n} trade${r.n===1?"":"s"}</div>${r.ref?`<div class="muted">ref ${r.ref}</div>`:""}</td>
-        <td class="n">${eur(r.amount)}</td>
-        <td>${r.due}${r.overdue?`<div><span class="tag over">overdue</span></div>`:""}</td>
-        <td>${r.declared?`<span class="tag ok">${r.declared}</span> <button class="del" data-tobundec="${r.month}">undo</button>`:`<button class="del" data-tobdec="${r.month}" style="color:var(--ink);text-decoration:underline">mark declared</button>`}</td>
-        <td>${r.paid?`<span class="tag ok">${r.paid}</span> <button class="del" data-tobunpaid="${r.month}">undo</button>`:(r.declared?`<button class="del" data-tobpaid="${r.month}" style="color:var(--ink);text-decoration:underline">mark paid</button>`:`<span class="muted">–</span>`)}</td></tr>`).join("")+`</table>`
+    ${rows.length?`<div class="rows">`+rows.map(r=>`<div class="rw" style="grid-template-columns:1fr">
+        <div style="display:flex;justify-content:space-between;gap:8px"><span class="ttl">${fmt(r.month)}</span><span class="amt">${eur(r.amount)}</span></div>
+        <div class="sub">${r.n} trade${r.n===1?"":"s"} · deadline ${r.due}${r.overdue?` · <span class="tag over">overdue</span>`:""}${r.ref?` · ref ${r.ref}`:""}</div>
+        <div class="act">${r.declared?`<span class="tag ok">declared ${r.declared}</span><button class="del" data-tobundec="${r.month}">undo</button>`:`<button class="del" data-tobdec="${r.month}" style="color:var(--ink);text-decoration:underline">mark declared</button>`}
+          ${r.paid?`<span class="tag ok">paid ${r.paid}</span><button class="del" data-tobunpaid="${r.month}">undo</button>`:(r.declared?`<button class="del" data-tobpaid="${r.month}" style="color:var(--ink);text-decoration:underline">mark paid</button>`:"")}</div>
+      </div>`).join("")+`</div>`
       :`<p class="muted">No transaction tax owed yet: log a purchase and it appears here.</p>`}
     <div class="row one" style="margin-top:10px"><div><label>Structured reference for a declared month (optional)</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="tob-refmonth" style="flex:0 0 110px;min-width:0">${rows.filter(r=>r.declared).map(r=>`<option value="${r.month}">${fmt(r.month)}</option>`).join("")||"<option value=''>none yet</option>"}</select><input id="tob-ref" placeholder="+++205/0882/34088+++" value=""><button class="btn quiet" id="tob-saveref">Save</button></div></div></div>
     <ol class="muted" style="margin:12px 0 0 18px;padding:0;font-size:13px">
@@ -866,15 +890,22 @@ function renderRebal(c){
   const last=S.settings.lastRebalance||""; const due=(now.getMonth()+1===rm)&&last.slice(0,4)!==String(now.getFullYear());
   const plan=rebalancePlan(c); const flagged=c.holdings.filter(h=>Math.abs(h.drift)>S.settings.band);
   const rows=c.holdings.map((h,i)=>{ const p=plan.find(x=>x.h===h); const delta=p?p.delta:0; const act=delta>0?"Buy":delta<0?"Sell":"";
-    return `<tr><td><strong>${h.a.ticker}</strong><div class="muted">${h.weight.toFixed(1)}% → ${h.a.target}%</div></td><td class="n">${act?`<span class="tag ${act==="Buy"?"under":"over"}">${act} ${eur0(Math.abs(delta)).replace("+","")}</span>`:`<span class="tag ok">keep</span>`}</td>
-      <td><input data-rb-units="${i}" placeholder="units" inputmode="decimal" style="width:72px;padding:8px 8px"></td><td><input data-rb-price="${i}" placeholder="price" inputmode="decimal" style="width:72px;padding:8px 8px"></td><td><input data-rb-fee="${i}" placeholder="fee" inputmode="decimal" style="width:56px;padding:8px 8px"></td></tr>`; }).join("");
+    return `<div class="rw" style="grid-template-columns:1fr">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div><span class="ttl">${h.a.ticker}</span> <span class="sub">${h.weight.toFixed(1)}% → ${h.a.target}%</span></div>
+        ${act?`<span class="tag ${act==="Buy"?"under":"over"}">${act} ${eur0(Math.abs(delta)).replace("+","")}</span>`:`<span class="tag ok">keep</span>`}</div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input data-rb-units="${i}" placeholder="units" inputmode="decimal" style="flex:1 1 0;min-width:0">
+        <input data-rb-price="${i}" placeholder="price" inputmode="decimal" style="flex:1 1 0;min-width:0">
+        <input data-rb-fee="${i}" placeholder="fee" inputmode="decimal" style="flex:0 1 70px;min-width:0"></div>
+    </div>`; }).join("");
   el.innerHTML=`<p>${due?`<span class="tag under">Due now</span> It is ${mn[rm-1]}, your rebalance month.`:`Next check: ${mn[rm-1]} ${now.getMonth()+1>rm||last.slice(0,4)===String(now.getFullYear())?now.getFullYear()+1:now.getFullYear()}${last?" · last done "+last:""}.`}</p>
     <ol style="margin:6px 0 10px 18px;padding:0" class="muted">
       <li>Type today's Revolut and Trade Republic prices in the Prices tab so the weights are exact.</li>
       <li>Only funds outside the ${S.settings.band}-point band need trades${flagged.length?": <strong>"+flagged.map(h=>h.a.ticker).join(", ")+"</strong>":"; today none do"}. If a few months of deposits can close the gap, prefer that (no tax).</li>
       <li>Otherwise sell the overweight amount, then buy the underweight ones. Enter what you actually traded below and press Record.</li>
     </ol>
-    <table><tr><th>Fund</th><th class="n">Plan</th><th>Units</th><th>Price</th><th>Fee</th></tr>${rows}</table>
+    <div class="rows">${rows}</div>
     <div class="row one" style="margin-top:8px"><div><label>Date</label><input type="date" id="rb-date" value="${now.toISOString().slice(0,10)}"></div></div>
     <p class="muted" id="rb-status"></p>
     <div class="actions"><button class="btn" id="rb-record">Record rebalance</button><button class="btn quiet" id="rb-none">Nothing to trade, mark done</button></div>`;
@@ -940,7 +971,9 @@ async function fetchPrices(auto){
   if(!fx){ notes.push("EUR/USD unavailable"); }
   for(const a of withProxy){ const p=pmap[a.proxy]; if(!p||!fx){ notes.push(`${a.ticker}: no data for ${a.proxy}`); continue; }
     if(!a.anchor){ a.anchor={price:a.price,proxy:p,fx:fx,date:new Date().toISOString().slice(0,10)}; filled++; continue; }
-    const est=a.anchor.price*(p/a.anchor.proxy)*(a.anchor.fx/fx); a.price=Math.round(est*100)/100; filled++; }
+    const est=a.anchor.price*(p/a.anchor.proxy)*(a.anchor.fx/fx);
+    if(a.price>0&&(est/a.price>1.25||est/a.price<0.75)){ notes.push(`${a.ticker}: estimate ${eur(est)} looks wrong against ${eur(a.price)}, kept the saved price`); continue; }
+    a.price=Math.round(est*100)/100; filled++; }
   const now=new Date();
   if(filled){ S.settings.priceDate=now.toISOString().slice(0,10); S.settings.priceNotes="estimated from US twins × EUR/USD"+(notes.length?" · "+notes.join(" · "):""); S.settings.lastAuto=now.toISOString(); try{ if(hasStore())localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} if(!S.settings.lastPush||Date.now()-new Date(S.settings.lastPush).getTime()>30*60*1000){S.settings.lastPush=new Date().toISOString();pushCloud();} render(); setStatus("Live · "+now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"})); }
   else setStatus("Price update failed; using saved prices");
