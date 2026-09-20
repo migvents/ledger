@@ -1,7 +1,7 @@
 {
   "fired": [],
   "last_rebalance_alert": "",
-  "last_tob_alert": "",
+  "last_tob_alert": "2026-09",
   "setup_warned": "2026-09",
   "breach": {},
   "watched": [],
@@ -12,6 +12,6 @@
     "EXUS": [],
     "VFEA": []
   },
-  "last_digest": "2026-09-19",
+  "last_digest": "2026-09-20",
   "last_plan_alert": "2026-09"
 }
