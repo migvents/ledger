@@ -5,13 +5,15 @@
   "setup_warned": "2026-11",
   "breach": {},
   "watched": [],
-  "fund_breach": {},
+  "fund_breach": {
+    "VFEA|15": "2026-11-25"
+  },
   "fund_fired": {
     "VUAA": [],
     "XDEW": [],
     "EXUS": [],
     "VFEA": []
   },
-  "last_digest": "2026-11-24",
+  "last_digest": "2026-11-25",
   "last_plan_alert": "2026-11"
 }
